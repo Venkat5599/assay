@@ -1,405 +1,294 @@
 "use client";
 
-import {useState} from "react";
-import {useAccount, useReadContract, useWriteContract} from "wagmi";
+import {useEffect, useMemo, useState} from "react";
+import {useAccount} from "wagmi";
 
-import {LiveBook} from "../components/LiveBook";
+import {Overlay, ScreenSwap} from "../components/Reveal";
 import {Wallet} from "../components/Wallet";
-import {marketAbi, registryAbi, vaultAbi} from "@/lib/abi";
+import {
+  Audit, BidBook, CommandCenter, Desks, Exposure, Funding, LoanBook, Origination,
+  Portfolio, Protocol, RiskMonitor, Servicing, Underwriting, CaseView, WorkQueue,
+} from "./Screens";
 import {addresses, isDeployed} from "@/lib/addresses";
-import {explorerAddress, IS_TESTNET} from "@/lib/chain";
+import {IS_TESTNET} from "@/lib/chain";
 import {usd, shortAddress} from "@/lib/format";
+import {useOps, useWorkQueue} from "@/lib/useOps";
+import {useToken} from "@/lib/useChain";
 
 /**
- * Operations console.
+ * Credit operations workstation.
  *
- * Every figure is read from chain. Where a value has not arrived yet it renders
- * as "--" rather than as a placeholder that could be mistaken for data. Nothing
- * on this page is stored in the page.
+ * Navigation follows the lifecycle a credit desk actually works - origination,
+ * credit, capital, servicing - rather than the contract layout. Every screen
+ * reads from one shared chain reader; nothing is seeded.
  */
 
-const ASSET_IDS = [1n, 2n, 3n];
+type Screen =
+  | "command" | "queue" | "portfolio" | "exposure"
+  | "receivables" | "origination"
+  | "underwriting" | "bidbook" | "risk"
+  | "funding" | "loanbook"
+  | "servicing"
+  | "desks"
+  | "audit" | "protocol"
+  | "case";
 
-/** Agent identities are deployment config, not chain state. */
-const AGENTS = [
-  {name: "CONSERVATIVE", addr: "0xb7E28bEbBFdBbA0D7884b740cb25F358C9D9edf1"},
-  {name: "SECTOR", addr: "0x6B4Db50f8B79b739860DB1B2948243e8Af36A764"},
-  {name: "AGGRESSIVE", addr: "0xf739FAc50486662A5aB90273a87345e0486E6EC5"},
+const NAV: {group: string; items: {id: Screen; label: string}[]}[] = [
+  {
+    group: "Workspace",
+    items: [
+      {id: "command", label: "Command center"},
+      {id: "queue", label: "Work queue"},
+      {id: "portfolio", label: "Portfolio"},
+      {id: "exposure", label: "Exposure"},
+    ],
+  },
+  {
+    group: "Origination",
+    items: [
+      {id: "receivables", label: "Receivables"},
+      {id: "origination", label: "New facility"},
+    ],
+  },
+  {
+    group: "Credit",
+    items: [
+      {id: "underwriting", label: "Underwriting"},
+      {id: "bidbook", label: "Bid book"},
+      {id: "risk", label: "Risk monitor"},
+    ],
+  },
+  {
+    group: "Capital",
+    items: [
+      {id: "funding", label: "Funding"},
+      {id: "loanbook", label: "Loan book"},
+    ],
+  },
+  {
+    group: "Servicing",
+    items: [{id: "servicing", label: "Settlements"}],
+  },
+  {
+    group: "Intelligence",
+    items: [{id: "desks", label: "Underwriter agents"}],
+  },
+  {
+    group: "Control",
+    items: [
+      {id: "audit", label: "Audit trail"},
+      {id: "protocol", label: "Protocol"},
+    ],
+  },
 ];
 
-const ZERO = "0x0000000000000000000000000000000000000000";
-const poll = {refetchInterval: 5000} as const;
+const TITLES: Record<Screen, string> = {
+  command: "Command center", queue: "Work queue", portfolio: "Portfolio", exposure: "Exposure",
+  receivables: "Receivables", origination: "New facility", underwriting: "Underwriting desk",
+  bidbook: "Bid book", risk: "Risk monitor", funding: "Funding", loanbook: "Loan book",
+  servicing: "Settlement operations", desks: "Underwriter agents", audit: "Audit trail",
+  protocol: "Protocol", case: "Credit case",
+};
 
-const pct = (num?: bigint, den?: bigint) =>
-  num !== undefined && den !== undefined && den > 0n ? Number((num * 10000n) / den) / 100 : 0;
+export default function Workstation() {
+  const ops = useOps();
+  const {address, isConnected} = useAccount();
+  const {balance} = useToken();
+  const [screen, setScreen] = useState<Screen>("command");
+  const [selected, setSelected] = useState<bigint | null>(null);
+  const [palette, setPalette] = useState(false);
+  const [query, setQuery] = useState("");
 
-const dateOf = (unix?: bigint) =>
-  unix ? new Date(Number(unix) * 1000).toISOString().slice(0, 10) : "--";
+  const queue = useWorkQueue(ops.positions);
 
-const daysTo = (unix?: bigint) =>
-  unix ? Math.round((Number(unix) * 1000 - Date.now()) / 86_400_000) : null;
+  const go = (s: string, id?: bigint) => {
+    if (id !== undefined) setSelected(id);
+    setScreen(s as Screen);
+    setPalette(false);
+  };
 
-/** One row of the portfolio table. Each row owns its own reads. */
-function LoadRow({id, selected, onSelect}: {id: bigint; selected: boolean; onSelect: () => void}) {
-  const enabled = isDeployed;
-  const q = {enabled, ...poll};
-
-  const {data: r} = useReadContract({
-    abi: registryAbi, address: addresses.assetRegistry, functionName: "receivableOf",
-    args: [id], query: q,
-  });
-  const {data: floor} = useReadContract({
-    abi: marketAbi, address: addresses.market, functionName: "currentFloor",
-    args: [id], query: q,
-  });
-  const {data: debt} = useReadContract({
-    abi: vaultAbi, address: addresses.vault, functionName: "outstanding",
-    args: [id], query: q,
-  });
-  const {data: cap} = useReadContract({
-    abi: marketAbi, address: addresses.market, functionName: "maxBorrow",
-    args: [id], query: q,
-  });
-  const {data: slot} = useReadContract({
-    abi: marketAbi, address: addresses.market, functionName: "slots",
-    args: [id], query: q,
-  });
-
-  const bid = Boolean(slot?.underwriter && slot.underwriter !== ZERO);
-  const util = pct(debt as bigint | undefined, cap as bigint | undefined);
-  const advance = pct(floor as bigint | undefined, r?.faceValue);
-  const days = daysTo(r?.dueDate);
-  const status = !bid ? "UNPRICED" : (debt as bigint | undefined) ? "DRAWN" : "PRICED";
-
-  return (
-    <tr className={selected ? "on" : undefined} onClick={onSelect}>
-      <td className="t-id">#{id.toString()}</td>
-      <td className="t-num">{r ? usd(r.faceValue) : "--"}</td>
-      <td className="t-num">{usd(floor as bigint | undefined)}</td>
-      <td className="t-num">{advance ? `${advance.toFixed(0)}%` : "--"}</td>
-      <td className="t-num">{usd(debt as bigint | undefined)}</td>
-      <td>
-        <span className="meter" title={`${util.toFixed(0)}% of headroom drawn`}>
-          <i style={{width: `${Math.min(util, 100)}%`}} />
-        </span>
-      </td>
-      <td className="t-num">{days === null ? "--" : `${days}d`}</td>
-      <td>
-        <span className={`chip ${status.toLowerCase()}`}>{status}</span>
-      </td>
-    </tr>
-  );
-}
-
-export default function Dashboard() {
-  const [selected, setSelected] = useState<bigint>(2n);
-  const [busy, setBusy] = useState<string | null>(null);
-  const {isConnected} = useAccount();
-  const {writeContractAsync} = useWriteContract();
-
-  const enabled = isDeployed;
-  const q = {enabled, ...poll};
-
-  const {data: r} = useReadContract({
-    abi: registryAbi, address: addresses.assetRegistry, functionName: "receivableOf",
-    args: [selected], query: q,
-  });
-  const {data: floor} = useReadContract({
-    abi: marketAbi, address: addresses.market, functionName: "currentFloor",
-    args: [selected], query: q,
-  });
-  const {data: room} = useReadContract({
-    abi: vaultAbi, address: addresses.vault, functionName: "availableToBorrow",
-    args: [selected], query: q,
-  });
-  const {data: debt} = useReadContract({
-    abi: vaultAbi, address: addresses.vault, functionName: "outstanding",
-    args: [selected], query: q,
-  });
-  const {data: cap} = useReadContract({
-    abi: marketAbi, address: addresses.market, functionName: "maxBorrow",
-    args: [selected], query: q,
-  });
-  const {data: slot} = useReadContract({
-    abi: marketAbi, address: addresses.market, functionName: "slots",
-    args: [selected], query: q,
-  });
-  const {data: defaulted} = useReadContract({
-    abi: vaultAbi, address: addresses.vault, functionName: "isDefaulted",
-    args: [selected], query: q,
-  });
-
-  const underwriter = slot?.underwriter;
-  const hasBid = Boolean(underwriter && underwriter !== ZERO);
-  const util = pct(debt as bigint | undefined, cap as bigint | undefined);
-  const days = daysTo(r?.dueDate);
-
-  async function run(tag: string, fn: () => Promise<unknown>) {
-    setBusy(tag);
-    try {
-      await fn();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setBusy(null);
+  useEffect(() => {
+    if (selected === null && ops.positions.length > 0) {
+      setSelected(ops.positions[ops.positions.length - 1]!.id);
     }
-  }
+  }, [ops.positions, selected]);
 
-  const canAct = isConnected && enabled;
+  // Command palette. A workstation should be keyboard-reachable.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPalette((p) => !p);
+      }
+      if (e.key === "Escape") setPalette(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const nav = NAV.flatMap((g) => g.items).map((i) => ({
+      kind: "screen" as const, label: i.label, hint: "go to", id: i.id,
+    }));
+    const assets = ops.positions.map((p) => ({
+      kind: "asset" as const,
+      label: `Asset #${p.id}`,
+      hint: `${usd(p.face)} · ${p.status} · obligor ${shortAddress(p.obligor)}`,
+      id: p.id,
+    }));
+    const all = [...nav, ...assets];
+    if (!q) return all.slice(0, 9);
+    return all
+      .filter((r) => `${r.label} ${r.hint}`.toLowerCase().includes(q))
+      .slice(0, 9);
+  }, [query, ops.positions]);
+
+  const body = () => {
+    switch (screen) {
+      case "command": return <CommandCenter ops={ops} go={go} />;
+      case "queue": return <WorkQueue ops={ops} go={go} />;
+      case "portfolio":
+      case "receivables": return <Portfolio ops={ops} go={go} />;
+      case "exposure": return <Exposure ops={ops} />;
+      case "origination": return <Origination ops={ops} />;
+      case "underwriting": return <Underwriting ops={ops} go={go} />;
+      case "bidbook": return <BidBook ops={ops} selected={selected} go={go} />;
+      case "risk": return <RiskMonitor ops={ops} />;
+      case "funding": return <Funding ops={ops} />;
+      case "loanbook": return <LoanBook ops={ops} go={go} />;
+      case "servicing": return <Servicing ops={ops} go={go} />;
+      case "desks": return <Desks ops={ops} />;
+      case "audit": return <Audit ops={ops} />;
+      case "protocol": return <Protocol ops={ops} />;
+      case "case":
+        return selected !== null ? <CaseView ops={ops} id={selected} go={go} /> : null;
+    }
+  };
 
   return (
-    <div className="dash">
-      <aside className="side">
-        <div className="side-brand">
+    <div className="ws">
+      <aside className="ws-side">
+        <div className="ws-brand">
           <a href="/">LADING</a>
+          <span className="label">Freight credit operations</span>
         </div>
 
-        <div className="side-group">
-          <span className="label">Portfolio</span>
-          {ASSET_IDS.map((id) => (
-            <button
-              key={id.toString()}
-              className={id === selected ? "side-link on" : "side-link"}
-              onClick={() => setSelected(id)}
-              aria-current={id === selected}
-            >
-              <span>ASSET #{id.toString()}</span>
-              <span>{id === selected ? "open" : ""}</span>
-            </button>
+        <nav className="ws-nav">
+          {NAV.map((g) => (
+            <div className="ws-group" key={g.group}>
+              <span className="label">{g.group}</span>
+              {g.items.map((i) => {
+                const badge =
+                  i.id === "queue" && queue.length ? String(queue.length) :
+                  i.id === "portfolio" && ops.positions.length ? String(ops.positions.length) : "";
+                return (
+                  <button
+                    key={i.id}
+                    className={screen === i.id ? "ws-link on" : "ws-link"}
+                    onClick={() => go(i.id)}
+                    aria-current={screen === i.id}
+                  >
+                    <span>{i.label}</span>
+                    {badge && <span className="ws-badge">{badge}</span>}
+                  </button>
+                );
+              })}
+            </div>
           ))}
-        </div>
+        </nav>
 
-        <div className="side-group">
-          <span className="label">Underwriter books</span>
-          {AGENTS.map((a) => (
-            <a
-              key={a.name}
-              className="side-link"
-              href={explorerAddress(a.addr)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <span>{a.name}</span>
-              <span>{shortAddress(a.addr)}</span>
-            </a>
-          ))}
-        </div>
-
-        <div className="side-group">
-          <span className="label">Contracts</span>
-          {(
-            [
-              ["MARKET", addresses.market],
-              ["VAULT", addresses.vault],
-              ["REGISTRY", addresses.assetRegistry],
-            ] as const
-          ).map(([name, addr]) =>
-            addr ? (
-              <a
-                key={name}
-                className="side-link"
-                href={explorerAddress(addr)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <span>{name}</span>
-                <span>{shortAddress(addr)}</span>
-              </a>
-            ) : (
-              <span className="side-link" key={name}>
-                <span>{name}</span>
-                <span>pending</span>
-              </span>
-            ),
-          )}
-        </div>
-
-        <div className="side-foot">
+        <div className="ws-foot">
           <div>{IS_TESTNET ? "BOT CHAIN TESTNET 968" : "BOT CHAIN 677"}</div>
-          <div>{enabled ? "READS LIVE" : "ADDRESSES UNSET"}</div>
+          <div>BLOCK {ops.block.toString()}</div>
+          <div>{isDeployed ? (ops.error ? "READ ERROR" : "READS LIVE") : "ADDRESSES UNSET"}</div>
         </div>
       </aside>
 
-      <main className="dash-main">
-        <div className="dash-bar">
-          <div>
-            <div className="dash-title">Asset #{selected.toString()}</div>
-            <div className="num">{r ? `DOC ${r.docHash.slice(0, 26)}...` : "READING REGISTRY"}</div>
-          </div>
-          <div className="hero-actions" style={{marginTop: 0}}>
-            <span className="live-dot">
-              <i aria-hidden="true" />
-              {enabled ? "POLLING CHAIN" : "OFFLINE"}
+      <main className="ws-main">
+        <header className="ws-bar">
+          <div className="ws-title">
+            <h1>{TITLES[screen]}</h1>
+            <span className="num">
+              {screen === "case" && selected !== null ? `ASSET #${selected}` : "LADING / CREDIT OPERATIONS"}
             </span>
+          </div>
+
+          <button className="ws-search" onClick={() => setPalette(true)}>
+            <span>Search assets, obligors, screens</span>
+            <kbd>Ctrl K</kbd>
+          </button>
+
+          <div className="ws-right">
+            <span className="ws-stat">
+              <span className="label">TVL</span>
+              <b>{usd(ops.pool.total)}</b>
+            </span>
+            <span className="ws-stat">
+              <span className="label">tUSD</span>
+              <b>{isConnected ? usd(balance) : "--"}</b>
+            </span>
+            {queue.length > 0 && (
+              <button className="ws-alerts" onClick={() => go("queue")}>
+                ALERTS <b>{String(queue.length).padStart(2, "0")}</b>
+              </button>
+            )}
             <Wallet />
           </div>
-        </div>
+        </header>
 
-        <div className="dash-pad">
-          <div className="stats">
-            <div>
-              <span className="label">FACE VALUE</span>
-              <div className="stat-figure">{r ? usd(r.faceValue) : "--"}</div>
-              <div className="stat-note">due {dateOf(r?.dueDate)}</div>
-            </div>
-            <div>
-              <span className="label">STANDING BID</span>
-              <div className="stat-figure">{usd(floor as bigint | undefined)}</div>
-              <div className="stat-note">{hasBid ? "escrowed in full" : "no bid"}</div>
-            </div>
-            <div>
-              <span className="label">DRAWABLE</span>
-              <div className="stat-figure">{usd(room as bigint | undefined)}</div>
-              <div className="stat-note">after haircut</div>
-            </div>
-            <div>
-              <span className="label">OUTSTANDING</span>
-              <div className="stat-figure">{usd(debt as bigint | undefined)}</div>
-              <div className="stat-note">{defaulted ? "callable" : "within headroom"}</div>
-            </div>
-          </div>
-
-          <div className="panel-title">
-            <h2>Portfolio</h2>
-            <span className="num">{ASSET_IDS.length} REGISTERED</span>
-          </div>
-          <div className="tablewrap">
-            <table className="tbl">
-              <thead>
-                <tr>
-                  <th>ASSET</th>
-                  <th className="t-num">FACE</th>
-                  <th className="t-num">FLOOR</th>
-                  <th className="t-num">ADV</th>
-                  <th className="t-num">DEBT</th>
-                  <th>UTILISATION</th>
-                  <th className="t-num">DUE</th>
-                  <th>STATUS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ASSET_IDS.map((id) => (
-                  <LoadRow
-                    key={id.toString()}
-                    id={id}
-                    selected={id === selected}
-                    onSelect={() => setSelected(id)}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="cols">
-            <section>
-              <div className="panel-title">
-                <h2>Position</h2>
-                <span className="num">ASSET #{selected.toString()}</span>
-              </div>
-              <dl className="kv">
-                <div>
-                  <dt>Headroom used</dt>
-                  <dd>
-                    <span className="meter wide">
-                      <i style={{width: `${Math.min(util, 100)}%`}} />
-                    </span>
-                    <b>{util.toFixed(1)}%</b>
-                  </dd>
-                </div>
-                <div>
-                  <dt>Days to settlement</dt>
-                  <dd>{days === null ? "--" : days}</dd>
-                </div>
-                <div>
-                  <dt>Obligor</dt>
-                  <dd className="mono">{r ? r.debtor : "--"}</dd>
-                </div>
-                <div>
-                  <dt>Document hash</dt>
-                  <dd className="mono">{r ? r.docHash : "--"}</dd>
-                </div>
-                <div>
-                  <dt>Incumbent</dt>
-                  <dd className="mono">{hasBid ? (underwriter as string) : "none"}</dd>
-                </div>
-                <div>
-                  <dt>Premium reserve</dt>
-                  <dd>{slot ? usd(slot.premiumReserve) : "--"}</dd>
-                </div>
-              </dl>
-            </section>
-
-            <section>
-              <div className="panel-title">
-                <h2>Actions</h2>
-                <span className="num">{canAct ? "SIGNER READY" : "CONNECT WALLET"}</span>
-              </div>
-              <div className="actions-col">
-                <button
-                  className="btn onDark"
-                  disabled={!canAct || busy !== null || !room}
-                  onClick={() =>
-                    run("borrow", () =>
-                      writeContractAsync({
-                        abi: vaultAbi,
-                        address: addresses.vault!,
-                        functionName: "borrow",
-                        args: [selected, (room as bigint) ?? 0n],
-                      }),
-                    )
-                  }
-                >
-                  {busy === "borrow" ? "Drawing" : "Draw maximum"}{" "}
-                  <span aria-hidden="true">&gt;</span>
-                </button>
-                <button
-                  className="btn onDark"
-                  disabled={!canAct || busy !== null || !debt}
-                  onClick={() =>
-                    run("repay", () =>
-                      writeContractAsync({
-                        abi: vaultAbi,
-                        address: addresses.vault!,
-                        functionName: "repay",
-                        args: [selected, (debt as bigint) ?? 0n],
-                      }),
-                    )
-                  }
-                >
-                  {busy === "repay" ? "Repaying" : "Repay in full"}
-                </button>
-                <button
-                  className="btn onDark"
-                  disabled={!canAct || busy !== null || !defaulted}
-                  onClick={() =>
-                    run("settle", () =>
-                      writeContractAsync({
-                        abi: marketAbi,
-                        address: addresses.market!,
-                        functionName: "settleDefault",
-                        args: [selected],
-                      }),
-                    )
-                  }
-                >
-                  {busy === "settle" ? "Settling" : "Settle default"}
-                </button>
-                <p className="callout" style={{marginTop: "0.25rem"}}>
-                  <b>Settle default stays disabled until the position is callable.</b> It opens
-                  when the receivable matures unpaid, or when floor decay compresses headroom
-                  below the debt. The contract enforces this regardless of this page.
-                </p>
-              </div>
-            </section>
-          </div>
-
-          <div className="panel-title">
-            <h2>Order book</h2>
-            <span className="num">BidPlaced LOGS</span>
-          </div>
-          <LiveBook assetId={selected} />
+        <div className="ws-body">
+          {ops.error && (
+            <p className="callout"><b>Chain read failed.</b> {ops.error}</p>
+          )}
+          {!isDeployed && (
+            <p className="callout">
+              <b>Contract addresses are not configured in this build.</b> Set the four
+              NEXT_PUBLIC_ addresses and every screen fills from chain.
+            </p>
+          )}
+          {ops.loading && isDeployed && <p className="callout">Reading protocol state&hellip;</p>}
+          {!isConnected && isDeployed && (
+            <p className="callout">
+              <b>Connect a wallet on chain {IS_TESTNET ? "968" : "677"} to operate.</b> Reads are
+              live without one; every write needs a signer.
+            </p>
+          )}
+          <ScreenSwap keyed={screen === "case" ? `case-${selected}` : screen}>
+            {body()}
+          </ScreenSwap>
         </div>
       </main>
+
+      <Overlay open={palette} onClose={() => setPalette(false)}>
+        <input
+          className="pal-input"
+          autoFocus
+          placeholder="Search assets, obligors, screens..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <ul className="pal-list">
+          {results.length === 0 && <li className="pal-empty">No match.</li>}
+          {results.map((r) => (
+            <li key={`${r.kind}-${r.id}`}>
+              <button
+                onClick={() =>
+                  r.kind === "asset" ? go("case", r.id as bigint) : go(r.id as string)
+                }
+              >
+                <span>{r.label}</span>
+                <span className="pal-hint">{r.hint}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <div className="pal-foot label">
+          {address ? shortAddress(address) : "not connected"} ·{" "}
+          {addresses.market ? shortAddress(addresses.market) : "market pending"}
+        </div>
+      </Overlay>
+
     </div>
   );
 }

@@ -1,4 +1,4 @@
-/** Minimal ABI surface - only what the carrier flow touches. */
+/** The full ABI surface the carrier, lender and underwriter flows touch. */
 
 export const marketAbi = [
   {
@@ -21,6 +21,13 @@ export const marketAbi = [
     stateMutability: "view",
     inputs: [{name: "assetId", type: "uint256"}],
     outputs: [{type: "address"}],
+  },
+  {
+    type: "function",
+    name: "minImprovementBps",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{type: "uint256"}],
   },
   {
     type: "function",
@@ -57,10 +64,42 @@ export const marketAbi = [
   },
   {
     type: "function",
+    name: "bid",
+    stateMutability: "nonpayable",
+    inputs: [
+      {name: "assetId", type: "uint256"},
+      {name: "newFloor", type: "uint256"},
+      {name: "newRate", type: "uint128"},
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "fundPremium",
+    stateMutability: "nonpayable",
+    inputs: [
+      {name: "assetId", type: "uint256"},
+      {name: "amount", type: "uint256"},
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
     name: "settleDefault",
     stateMutability: "nonpayable",
     inputs: [{name: "assetId", type: "uint256"}],
     outputs: [],
+  },
+  {
+    type: "event",
+    name: "BidPlaced",
+    inputs: [
+      {name: "assetId", type: "uint256", indexed: true},
+      {name: "underwriter", type: "address", indexed: true},
+      {name: "displaced", type: "address", indexed: true},
+      {name: "floor", type: "uint256", indexed: false},
+      {name: "premiumRate", type: "uint128", indexed: false},
+    ],
   },
 ] as const;
 
@@ -85,6 +124,48 @@ export const vaultAbi = [
     stateMutability: "view",
     inputs: [{name: "assetId", type: "uint256"}],
     outputs: [{type: "bool"}],
+  },
+  {
+    type: "function",
+    name: "totalAssets",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{type: "uint256"}],
+  },
+  {
+    type: "function",
+    name: "totalIdle",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{type: "uint256"}],
+  },
+  {
+    type: "function",
+    name: "sharesOf",
+    stateMutability: "view",
+    inputs: [{name: "lender", type: "address"}],
+    outputs: [{type: "uint256"}],
+  },
+  {
+    type: "function",
+    name: "convertToAssets",
+    stateMutability: "view",
+    inputs: [{name: "shares", type: "uint256"}],
+    outputs: [{type: "uint256"}],
+  },
+  {
+    type: "function",
+    name: "deposit",
+    stateMutability: "nonpayable",
+    inputs: [{name: "amount", type: "uint256"}],
+    outputs: [{type: "uint256"}],
+  },
+  {
+    type: "function",
+    name: "withdraw",
+    stateMutability: "nonpayable",
+    inputs: [{name: "shares", type: "uint256"}],
+    outputs: [{type: "uint256"}],
   },
   {
     type: "function",
@@ -149,6 +230,30 @@ export const registryAbi = [
   },
   {
     type: "function",
+    name: "exists",
+    stateMutability: "view",
+    inputs: [{name: "id", type: "uint256"}],
+    outputs: [{type: "bool"}],
+  },
+  {
+    type: "function",
+    name: "ownerOf",
+    stateMutability: "view",
+    inputs: [{name: "id", type: "uint256"}],
+    outputs: [{type: "address"}],
+  },
+  {
+    type: "function",
+    name: "isApprovedForAll",
+    stateMutability: "view",
+    inputs: [
+      {name: "owner", type: "address"},
+      {name: "operator", type: "address"},
+    ],
+    outputs: [{type: "bool"}],
+  },
+  {
+    type: "function",
     name: "setApprovalForAll",
     stateMutability: "nonpayable",
     inputs: [
@@ -156,6 +261,16 @@ export const registryAbi = [
       {name: "approved", type: "bool"},
     ],
     outputs: [],
+  },
+  {
+    type: "event",
+    name: "Registered",
+    inputs: [
+      {name: "id", type: "uint256", indexed: true},
+      {name: "owner", type: "address", indexed: true},
+      {name: "docHash", type: "bytes32", indexed: true},
+      {name: "faceValue", type: "uint128", indexed: false},
+    ],
   },
 ] as const;
 
@@ -172,6 +287,16 @@ export const erc20Abi = [
   },
   {
     type: "function",
+    name: "allowance",
+    stateMutability: "view",
+    inputs: [
+      {name: "owner", type: "address"},
+      {name: "spender", type: "address"},
+    ],
+    outputs: [{type: "uint256"}],
+  },
+  {
+    type: "function",
     name: "balanceOf",
     stateMutability: "view",
     inputs: [{name: "account", type: "address"}],
@@ -183,5 +308,15 @@ export const erc20Abi = [
     stateMutability: "view",
     inputs: [],
     outputs: [{type: "uint8"}],
+  },
+  {
+    type: "function",
+    name: "mint",
+    stateMutability: "nonpayable",
+    inputs: [
+      {name: "to", type: "address"},
+      {name: "amount", type: "uint256"},
+    ],
+    outputs: [],
   },
 ] as const;

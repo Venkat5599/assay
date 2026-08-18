@@ -437,7 +437,7 @@ export default function Page() {
             to the carrier it just marked down. So it does not emit one. It grades the credit
             and writes a rationale; auditable arithmetic turns that grade into a floor.
           </p>
-          <p className=section-lead>
+          <p className="section-lead">
             Below is a recorded sweep, not a simulation. Each BID line settled as a real
             transaction on chain 968 and moved the agent&rsquo;s own balance. The live book is
             on the dashboard.
