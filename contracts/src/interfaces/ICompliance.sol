@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 /// @title ICompliance
 /// @notice Pluggable participation gate. Swapping the implementation is how
-///         PLINTH adapts to a jurisdiction without touching market logic.
+///         LADING adapts to a jurisdiction without touching market logic.
 /// @dev A null implementation returning `true` everywhere makes the protocol
 ///      permissionless. v1 ships an allowlist.
 interface ICompliance {

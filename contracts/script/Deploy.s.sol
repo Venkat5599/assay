@@ -7,6 +7,7 @@ import {AssetRegistry} from "../src/AssetRegistry.sol";
 import {FirmBidMarket} from "../src/FirmBidMarket.sol";
 import {LoanVault} from "../src/LoanVault.sol";
 import {AllowlistCompliance} from "../src/compliance/AllowlistCompliance.sol";
+import {TestStable} from "../src/mocks/TestStable.sol";
 import {ICompliance} from "../src/interfaces/ICompliance.sol";
 import {IAssetRegistry} from "../src/interfaces/IAssetRegistry.sol";
 import {IFirmBidMarket} from "../src/interfaces/IFirmBidMarket.sol";
@@ -25,9 +26,15 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract Deploy is Script {
     function run() external {
         address deployer = msg.sender;
-        address stable = vm.envAddress("STABLE_TOKEN");
+        // On testnet there is no canonical stablecoin, so deploy a mintable
+        // one. On mainnet STABLE_TOKEN is always set and this branch is dead.
+        address stable = vm.envOr("STABLE_TOKEN", address(0));
 
         vm.startBroadcast();
+
+        if (stable == address(0)) {
+            stable = address(new TestStable());
+        }
 
         AllowlistCompliance compliance = new AllowlistCompliance(deployer);
         AssetRegistry registry = new AssetRegistry(deployer, ICompliance(address(compliance)));

@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 /// @notice A commercial trade receivable recorded on-chain.
 /// @dev `docHash` commits to the off-chain document bundle (invoice, bill of
-///      lading, assignment notice). PLINTH never asserts the document is
+///      lading, assignment notice). LADING never asserts the document is
 ///      genuine - the underwriter's escrowed capital is what prices that risk.
 struct Receivable {
     address debtor; // obligor on the receivable (informational)

@@ -6,7 +6,7 @@ import {useAccount, useReadContract, useWriteContract} from "wagmi";
 import {Wallet} from "./components/Wallet";
 import {marketAbi, registryAbi, vaultAbi} from "@/lib/abi";
 import {addresses, isDeployed} from "@/lib/addresses";
-import {explorerAddress} from "@/lib/chain";
+import {explorerAddress, IS_TESTNET} from "@/lib/chain";
 import {usd, shortAddress} from "@/lib/format";
 
 /**
@@ -108,7 +108,9 @@ export default function Page() {
           <h1 className="mark">
             LAD<span>I</span>NG
           </h1>
-          <span className="nav-meta">BOT CHAIN 677 / FREIGHT RECEIVABLES</span>
+          <span className="nav-meta">
+            {IS_TESTNET ? "BOT CHAIN TESTNET 968" : "BOT CHAIN 677"} / FREIGHT RECEIVABLES
+          </span>
         </nav>
       </header>
 

@@ -8,7 +8,7 @@ import {ICompliance} from "./interfaces/ICompliance.sol";
 import {IAssetRegistry, Receivable} from "./interfaces/IAssetRegistry.sol";
 
 /// @title AssetRegistry
-/// @notice ERC-721 record of commercial trade receivables used as PLINTH collateral.
+/// @notice ERC-721 record of commercial trade receivables used as LADING collateral.
 /// @dev The registry is intentionally dumb. It asserts nothing about whether a
 ///      receivable is genuine; that judgement is priced by underwriters who
 ///      escrow real capital against it. `docHash` is a commitment, not a proof.
@@ -35,7 +35,7 @@ contract AssetRegistry is IAssetRegistry, ERC721, Ownable2Step {
     event ComplianceUpdated(address indexed compliance);
 
     constructor(address initialOwner, ICompliance compliance_)
-        ERC721("PLINTH Receivable", "pRCV")
+        ERC721("LADING Freight Receivable", "LADE")
         Ownable(initialOwner)
     {
         compliance = compliance_;

@@ -91,10 +91,19 @@ Then set the printed addresses in `web/.env` (see `web/.env.example`) and the fr
 
 ### Deployed addresses
 
-| Network | Contract | Address |
-|---|---|---|
-| BOT Chain testnet | — | pending |
-| BOT Chain mainnet (677) | — | pending |
+**BOT Chain testnet (chain 968)** — live, explorer [scan.bohr.life](https://scan.bohr.life)
+
+| Contract | Address |
+|---|---|
+| `AssetRegistry` | [`0x376470D20e0F67588A9DD5aFCeeD9748Dc4F1CD2`](https://scan.bohr.life/address/0x376470D20e0F67588A9DD5aFCeeD9748Dc4F1CD2) |
+| `FirmBidMarket` | [`0x6438EDAeebF482212fbcf5a681Be0b698f952F05`](https://scan.bohr.life/address/0x6438EDAeebF482212fbcf5a681Be0b698f952F05) |
+| `LoanVault` | [`0x82570C2Aa5cCbE7F003A96931094b9d7590645D5`](https://scan.bohr.life/address/0x82570C2Aa5cCbE7F003A96931094b9d7590645D5) |
+| `AllowlistCompliance` | [`0xEC6d05d9f71c120AD4E7178F06E9f5fFc4586503`](https://scan.bohr.life/address/0xEC6d05d9f71c120AD4E7178F06E9f5fFc4586503) |
+| `TestStable` (tUSD) | [`0x43C6BB88dA4c5764de4F5b250D8cA4008c7c3549`](https://scan.bohr.life/address/0x43C6BB88dA4c5764de4F5b250D8cA4008c7c3549) |
+
+Asset #1 is live: BOL-88213, face value 18,400 tUSD, two competing firm bids placed. The second (15,640) displaced the first (14,720), leaving 12,512 drawable.
+
+**BOT Chain mainnet (chain 677)** — pending gas sponsorship.
 
 ## Web
 
@@ -104,7 +113,7 @@ cd web && npm install && npm run dev
 
 ## Status
 
-Contracts complete and tested. Frontend building. Agents next. Testnet deployment ahead of mainnet.
+Live on BOT Chain testnet with the full loop seeded. Frontend deployed at **https://lading-ten.vercel.app**, reading chain state. Agent underwriters next. Mainnet awaits gas sponsorship.
 
 ## Licence
 
