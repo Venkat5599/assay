@@ -5,7 +5,7 @@ import {useMemo, useState} from "react";
 import {BorrowRepay, Faucet, LendPanel, OpenSlot, PlaceBid, SubmitLoad} from "../components/Forms";
 import {addresses} from "@/lib/addresses";
 import {explorerAddress, explorerTx} from "@/lib/chain";
-import {usd, shortAddress} from "@/lib/format";
+import {usd, shortAddress, bolRef} from "@/lib/format";
 import {
   bookOf, COVERAGE_THRESHOLD, useDesks, usePortfolio, useWorkQueue, ZERO,
   type Ops, type Position,
@@ -113,7 +113,7 @@ export function CommandCenter({ops, go}: {ops: Ops; go: (s: string, id?: bigint)
                   {queue.slice(0, 8).map((q, i) => (
                     <tr key={`${q.id}-${q.type}-${i}`} onClick={() => go("case", q.id)}>
                       <td><span className={`chip ${q.priority.toLowerCase()}`}>{q.priority}</span></td>
-                      <td className="t-id">#{q.id.toString()}</td>
+                      <td className="t-id">{bolRef(q.position.docHash)}</td>
                       <td>{q.type}</td>
                       <td className="t-dim">{q.desk}</td>
                       <td className="t-dim">{q.detail}</td>
@@ -170,7 +170,7 @@ export function WorkQueue({ops, go}: {ops: Ops; go: (s: string, id?: bigint) => 
               {queue.map((q, i) => (
                 <tr key={`${q.id}-${q.type}-${i}`} onClick={() => go("case", q.id)}>
                   <td><span className={`chip ${q.priority.toLowerCase()}`}>{q.priority}</span></td>
-                  <td className="t-id">#{q.id.toString()}</td>
+                  <td className="t-id">{bolRef(q.position.docHash)}</td>
                   <td>{q.type}</td>
                   <td className="t-dim">{q.desk}</td>
                   <td className="t-dim">{q.detail}</td>
@@ -200,7 +200,7 @@ export function Portfolio({ops, go}: {ops: Ops; go: (s: string, id?: bigint) => 
         <Metric label="WEIGHTED MATURITY" value={`${Math.round(p.weightedDays)}d`} note="face-weighted" />
       </div>
 
-      <Head title="Positions" right={`${ops.positions.length} FROM CHAIN`} />
+      <Head title="Receivables" right={`${ops.positions.length} REGISTERED`} />
       {ops.positions.length === 0 ? (
         <Empty><b>No receivables registered.</b> Origination has not started on this deployment.</Empty>
       ) : (
@@ -208,23 +208,30 @@ export function Portfolio({ops, go}: {ops: Ops; go: (s: string, id?: bigint) => 
           <table className="tbl">
             <thead>
               <tr>
-                <th>ASSET</th><th className="t-num">FACE</th><th className="t-num">FLOOR</th>
-                <th className="t-num">ADV</th><th className="t-num">DEBT</th><th className="t-num">COVER</th>
-                <th>UTILISATION</th><th className="t-num">DUE</th><th>STATUS</th>
+                <th>REFERENCE</th><th>OBLIGOR</th><th className="t-num">FACE</th>
+                <th className="t-num">FLOOR</th><th className="t-num">CREDIT</th>
+                <th className="t-num">DRAWN</th><th className="t-num">COVER</th>
+                <th className="t-num">DUE</th><th>STATUS</th>
               </tr>
             </thead>
             <tbody>
               {ops.positions.map((x) => (
                 <tr key={x.id.toString()} onClick={() => go("case", x.id)}>
-                  <td className="t-id">#{x.id.toString()}</td>
+                  <td className="t-id">{bolRef(x.docHash)}</td>
+                  <td className="t-dim">{shortAddress(x.obligor)}</td>
                   <td className="t-num">{usd(x.face)}</td>
                   <td className="t-num">{usd(x.floor)}</td>
-                  <td className="t-num">{x.advance ? `${x.advance.toFixed(0)}%` : "--"}</td>
+                  <td className="t-num">{usd(x.cap)}</td>
                   <td className="t-num">{usd(x.debt)}</td>
-                  <td className="t-num">{x.debt > 0n ? `${x.coverage.toFixed(2)}x` : "--"}</td>
-                  <td><Bar value={x.utilisation} tone={x.utilisation > 90 ? "bad" : undefined} /></td>
+                  <td className={`t-num${x.debt > 0n && x.coverage < 1.2 ? " bad" : ""}`}>
+                    {x.debt > 0n ? `${x.coverage.toFixed(2)}x` : "--"}
+                  </td>
                   <td className="t-num">{x.days}d</td>
-                  <td><span className={`chip ${toneFor(x.status)}`}>{x.status}</span></td>
+                  <td>
+                    <span className={`chip ${x.status === "DRAWN" ? "covered" : toneFor(x.status)}`}>
+                      {x.status === "DRAWN" ? "COVERED" : x.status}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -461,7 +468,7 @@ export function BidBook({ops, selected, go}: {ops: Ops; selected: bigint | null;
               <tbody>
                 {ops.positions.map((x) => (
                   <tr key={x.id.toString()} className={x.id === pos.id ? "on" : undefined} onClick={() => go("bidbook", x.id)}>
-                    <td className="t-id">#{x.id.toString()}</td>
+                    <td className="t-id">{bolRef(x.docHash)}</td>
                     <td className="t-num">{usd(x.floor)}</td>
                     <td><span className={`chip ${toneFor(x.status)}`}>{x.status}</span></td>
                   </tr>
@@ -492,7 +499,7 @@ export function Underwriting({ops, go}: {ops: Ops; go: (s: string, id?: bigint) 
             <tbody>
               {ops.positions.map((x) => (
                 <tr key={x.id.toString()} onClick={() => go("case", x.id)}>
-                  <td className="t-id">#{x.id.toString()}</td>
+                  <td className="t-id">{bolRef(x.docHash)}</td>
                   <td className="t-num">{usd(x.face)}</td>
                   <td className="t-num">{x.floor > 0n ? usd(x.floor) : "--"}</td>
                   <td className="t-num">{x.advance ? `${x.advance.toFixed(0)}%` : "--"}</td>
@@ -625,7 +632,7 @@ export function LoanBook({ops, go}: {ops: Ops; go: (s: string, id?: bigint) => v
             <tbody>
               {drawn.map((x) => (
                 <tr key={x.id.toString()} onClick={() => go("case", x.id)}>
-                  <td className="t-id">#{x.id.toString()}</td>
+                  <td className="t-id">{bolRef(x.docHash)}</td>
                   <td className="t-num">{usd(x.debt)}</td>
                   <td className="t-num">{usd(x.floor)}</td>
                   <td className={`t-num${x.coverage < COVERAGE_THRESHOLD ? " bad" : ""}`}>{x.coverage.toFixed(2)}x</td>
@@ -660,7 +667,7 @@ export function Servicing({ops, go}: {ops: Ops; go: (s: string, id?: bigint) => 
             <tbody>
               {[...ready, ...monitor].map((x) => (
                 <tr key={x.id.toString()} onClick={() => go("case", x.id)}>
-                  <td className="t-id">#{x.id.toString()}</td>
+                  <td className="t-id">{bolRef(x.docHash)}</td>
                   <td>{x.defaulted ? (x.days < 0 ? "MATURITY" : "COVERAGE") : x.status === "BREACH" ? "COVERAGE" : "MATURITY"}</td>
                   <td className="t-num">{usd(x.floor)}</td>
                   <td className="t-num">{usd(x.debt)}</td>

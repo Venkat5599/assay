@@ -689,3 +689,51 @@ export function LendPanel() {
 }
 
 export {ZERO};
+
+/** Executes an atomic settlement. Disabled until the contract says callable. */
+export function SettleButton({
+  assetId,
+  enabled,
+  onDone,
+}: {
+  assetId: bigint;
+  enabled: boolean;
+  onDone?: () => void;
+}) {
+  const {isConnected} = useAccount();
+  const runner = useTxRunner();
+  const busy = runner.state.status === "pending";
+
+  return (
+    <div className="settle-exec">
+      <button
+        className="btn flare"
+        disabled={!isConnected || !enabled || busy}
+        onClick={async () => {
+          const ok = await runner.run([
+            {
+              label: "Executing atomic settlement",
+              call: () =>
+                runner.writeContractAsync({
+                  abi: marketAbi,
+                  address: addresses.market!,
+                  functionName: "settleDefault",
+                  args: [assetId],
+                }),
+            },
+          ]);
+          if (ok) onDone?.();
+        }}
+      >
+        {busy ? "Settling" : "Execute settlement"} <span aria-hidden="true">&gt;</span>
+      </button>
+      {!enabled && (
+        <p className="formnote">
+          The contract gates this until the receivable matures unpaid, or floor decay pulls
+          coverage below the outstanding loan.
+        </p>
+      )}
+      <Result runner={runner} />
+    </div>
+  );
+}

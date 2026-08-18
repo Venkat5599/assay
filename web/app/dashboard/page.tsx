@@ -1,17 +1,19 @@
 "use client";
 
-import {useEffect, useMemo, useState} from "react";
+import {useCallback, useEffect, useMemo, useState} from "react";
 import {useAccount} from "wagmi";
 
-import {Overlay, ScreenSwap} from "../components/Reveal";
+import {Overlay} from "../components/Reveal";
 import {Wallet} from "../components/Wallet";
 import {
   Audit, BidBook, CommandCenter, Desks, Exposure, Funding, LoanBook, Origination,
-  Portfolio, Protocol, RiskMonitor, Servicing, Underwriting, CaseView, WorkQueue,
+  Portfolio, Protocol, RiskMonitor, Servicing, Underwriting, WorkQueue,
 } from "./Screens";
+import {CreditCase} from "./CreditCase";
+import {SettleButton} from "../components/Forms";
 import {addresses, isDeployed} from "@/lib/addresses";
 import {IS_TESTNET} from "@/lib/chain";
-import {usd, shortAddress} from "@/lib/format";
+import {usd, shortAddress, bolRef} from "@/lib/format";
 import {useOps, useWorkQueue} from "@/lib/useOps";
 import {useToken} from "@/lib/useChain";
 
@@ -91,7 +93,15 @@ const TITLES: Record<Screen, string> = {
 };
 
 export default function Workstation() {
-  const ops = useOps();
+  const base = useOps();
+  const refresh = base.refresh;
+  const settleAction = useCallback(
+    (p: {id: bigint; defaulted: boolean}) => (
+      <SettleButton assetId={p.id} enabled={p.defaulted} onDone={refresh} />
+    ),
+    [refresh],
+  );
+  const ops = useMemo(() => ({...base, settleAction}), [base, settleAction]);
   const {address, isConnected} = useAccount();
   const {balance} = useToken();
   const [screen, setScreen] = useState<Screen>("command");
@@ -133,7 +143,7 @@ export default function Workstation() {
     }));
     const assets = ops.positions.map((p) => ({
       kind: "asset" as const,
-      label: `Asset #${p.id}`,
+      label: bolRef(p.docHash),
       hint: `${usd(p.face)} · ${p.status} · obligor ${shortAddress(p.obligor)}`,
       id: p.id,
     }));
@@ -162,7 +172,7 @@ export default function Workstation() {
       case "audit": return <Audit ops={ops} />;
       case "protocol": return <Protocol ops={ops} />;
       case "case":
-        return selected !== null ? <CaseView ops={ops} id={selected} go={go} /> : null;
+        return selected !== null ? <CreditCase ops={ops} id={selected} go={go} /> : null;
     }
   };
 
@@ -210,7 +220,9 @@ export default function Workstation() {
           <div className="ws-title">
             <h1>{TITLES[screen]}</h1>
             <span className="num">
-              {screen === "case" && selected !== null ? `ASSET #${selected}` : "LADING / CREDIT OPERATIONS"}
+              {screen === "case" && selected !== null
+                ? bolRef(ops.positions.find((x) => x.id === selected)?.docHash)
+                : "LADING / CREDIT OPERATIONS"}
             </span>
           </div>
 
@@ -220,6 +232,10 @@ export default function Workstation() {
           </button>
 
           <div className="ws-right">
+            <span className={IS_TESTNET ? "netbadge testnet" : "netbadge"}>
+              <span><i aria-hidden="true" />BOT CHAIN {IS_TESTNET ? "TESTNET" : "MAINNET"}</span>
+              <em>CHAIN {IS_TESTNET ? "968" : "677"} · BLOCK {ops.block.toString()}</em>
+            </span>
             <span className="ws-stat">
               <span className="label">TVL</span>
               <b>{usd(ops.pool.total)}</b>
@@ -254,9 +270,7 @@ export default function Workstation() {
               live without one; every write needs a signer.
             </p>
           )}
-          <ScreenSwap keyed={screen === "case" ? `case-${selected}` : screen}>
-            {body()}
-          </ScreenSwap>
+          {body()}
         </div>
       </main>
 

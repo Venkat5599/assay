@@ -1,6 +1,7 @@
 "use client";
 
 import {useEffect} from "react";
+import {usePathname} from "next/navigation";
 import Lenis from "lenis";
 import {gsap} from "gsap";
 import {ScrollTrigger} from "gsap/ScrollTrigger";
@@ -19,7 +20,14 @@ import {ScrollTrigger} from "gsap/ScrollTrigger";
  * that count, and the settlement map advancing as you travel past it.
  */
 export function Motion() {
+  const pathname = usePathname();
+
   useEffect(() => {
+    // Lenis takes over the document scroller. The workstation has its own
+    // scroll containers - a fixed rail and an independently scrolling pane -
+    // so smooth-scrolling the document there breaks the wheel entirely.
+    // Scroll choreography belongs to the marketing page only.
+    if (pathname !== "/") return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     gsap.registerPlugin(ScrollTrigger);
@@ -152,7 +160,7 @@ export function Motion() {
       ScrollTrigger.getAll().forEach((t) => t.kill());
       lenis.destroy();
     };
-  }, []);
+  }, [pathname]);
 
   return null;
 }

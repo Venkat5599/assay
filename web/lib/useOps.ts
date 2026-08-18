@@ -1,6 +1,6 @@
 "use client";
 
-import {useEffect, useMemo, useState} from "react";
+import {useCallback, useEffect, useMemo, useState, type ReactNode} from "react";
 import {createPublicClient, http, parseAbiItem, type Address} from "viem";
 
 import {addresses, isDeployed} from "./addresses";
@@ -102,6 +102,8 @@ export interface Ops {
   pool: {total: bigint; idle: bigint; deployed: bigint};
   block: bigint;
   refresh: () => void;
+  /** Injected by the shell so settlement lives with the other forms. */
+  settleAction?: (p: Position) => ReactNode;
 }
 
 /** Coverage below this is a breach candidate; the contract's own gate is 1.0. */
@@ -264,7 +266,8 @@ export function useOps(): Ops {
     };
   }, [tick]);
 
-  return {...state, refresh: () => setTick((n) => n + 1)};
+  const refresh = useCallback(() => setTick((n) => n + 1), []);
+  return useMemo(() => ({...state, refresh}), [state, refresh]);
 }
 
 /** Portfolio aggregates. Every figure is a sum over real positions. */
