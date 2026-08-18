@@ -273,7 +273,7 @@ export function SubmitLoad({onDone}: {onDone?: () => void}) {
       {!fileHash && (
         <Field
           label="Or a document reference"
-          hint={docHash ? `hashes to ${docHash.slice(0, 22)}...` : "e.g. BOL-90118/acme/2026-08-19"}
+          hint={docHash ? `hashes to ${docHash.slice(0, 22)}...` : "any stable string identifying the document"}
         >
           <input
             className="input"

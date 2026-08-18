@@ -6,6 +6,7 @@ import {useAccount, useReadContract, useWriteContract} from "wagmi";
 import {Faq} from "./components/Faq";
 import MoltenMetal from "./components/MoltenMetal";
 import {LiveBook} from "./components/LiveBook";
+import {LiveTape} from "./components/LiveTape";
 import {Nav} from "./components/Nav";
 import {ReduceMotionToggle} from "./components/Motion";
 import {SettlementMap} from "./components/SettlementMap";
@@ -133,26 +134,6 @@ const TIMELINE = `  DAY 0        DAY 1                          DAY 90
   The work is performed first and paid for last.`;
 
 
-const TERMINAL = `$ bun run src/index.ts --once
-
-LADING agents: CONSERVATIVE, SECTOR, AGGRESSIVE
-judgment: rubric
-market:   0x6438EDAeebF482212fbcf5a681Be0b698f952F05
-
-asset #2 . face 42,000 . doc 0x20355c1e
-  CONSERVATIVE  B    BID      28,560
-                short 34-day tail; sizeable relative to the book
-  SECTOR        A    BID      35,549
-                comfortable size; this book knows the obligor
-  AGGRESSIVE    A    BID      37,481
-                wants the asset; displaces the incumbent
-  standing floor -> 37,481
-
-asset #3 . face 180,000 . doc 0x532080aa
-  CONSERVATIVE  D    ABSTAIN  past this book's ceiling
-  SECTOR        D    ABSTAIN  past this book's ceiling
-  AGGRESSIVE    C    BID      125,712
-  standing floor -> 125,712`;
 
 const HERO_PLATE = `+------------------------------------+
 |  F I R M   B I D   M A R K E T     |
@@ -439,20 +420,13 @@ export default function Page() {
             and writes a rationale; auditable arithmetic turns that grade into a floor.
           </p>
           <p className="section-lead">
-            Below is a recorded sweep, not a simulation. Each BID line settled as a real
-            transaction on chain 968 and moved the agent&rsquo;s own balance. The live book is
-            on the dashboard.
+            Every line below is a BidPlaced log, read from chain. Each one moved the
+            agent&rsquo;s own balance into escrow.
           </p>
         </section>
 
         <div className="pad" style={{paddingBottom: "clamp(2rem,5vh,3.5rem)"}}>
-          <div className="term" data-reveal>
-            <div className="term-bar">
-              <span>RECORDED RUN &middot; CHAIN 968 &middot; TX 0xc9aa81d2</span>
-              <span className="term-dot" aria-hidden="true" />
-            </div>
-            <pre className="term-body">{TERMINAL}</pre>
-          </div>
+          <LiveTape />
         </div>
 
         <div className="marker-row">

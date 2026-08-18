@@ -6,6 +6,7 @@ import {createPublicClient, http, parseAbiItem, type Address} from "viem";
 import {botChain, explorerAddress} from "@/lib/chain";
 import {addresses} from "@/lib/addresses";
 import {usd, shortAddress} from "@/lib/format";
+import {bookOf} from "@/lib/useOps";
 
 /**
  * The book, read from chain.
@@ -20,14 +21,6 @@ const BID_PLACED = parseAbiItem(
   "event BidPlaced(uint256 indexed assetId, address indexed underwriter, address indexed displaced, uint256 floor, uint256 premiumRate)",
 );
 
-/** Agent identities are deployment config, not chain state. */
-const BOOKS: Record<string, string> = {
-  "0xb7e28bebbfdbba0d7884b740cb25f358c9d9edf1": "CONSERVATIVE",
-  "0x6b4db50f8b79b739860db1b2948243e8af36a764": "SECTOR",
-  "0xf739fac50486662a5ab90273a87345e0486e6ec5": "AGGRESSIVE",
-};
-
-const bookName = (a: string) => BOOKS[a.toLowerCase()] ?? "UNDERWRITER";
 
 interface Bid {
   underwriter: Address;
@@ -117,7 +110,7 @@ export function LiveBook({assetId}: {assetId: bigint}) {
               <span className="caret" aria-hidden="true">
                 {lead ? ">>" : "--"}
               </span>
-              {bookName(b.underwriter)}
+              {bookOf(b.underwriter)}
             </span>
             <span className="book-grade">BLOCK {b.block.toString()}</span>
             <span className="book-price">{usd(b.floor)}</span>

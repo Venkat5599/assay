@@ -32,7 +32,9 @@ contract Seed is Script {
         IERC20(address(stable)).approve(address(market), type(uint256).max);
         IERC20(address(stable)).approve(address(vault), type(uint256).max);
 
-        // BOL-88213: bulk corn, Cedar Rapids -> Kansas City, net 90.
+        // The document string is hashed, never stored, so it does not need to
+        // name a real shipper - and must not pretend to. What matters on chain
+        // is that the hash is unique and reproducible.
         uint256 assetId = registry.register(
             me,
             Receivable({
@@ -40,7 +42,7 @@ contract Seed is Script {
                 faceValue: 18_400e18,
                 dueDate: uint64(block.timestamp + 90 days),
                 registeredAt: 0,
-                docHash: keccak256("BOL-88213/midwest-grain/2026-08-11")
+                docHash: keccak256(abi.encodePacked("lading/testnet/seed/1"))
             })
         );
 
