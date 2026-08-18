@@ -36,6 +36,7 @@ int_types = "long"
 
 [rpc_endpoints]
 botchain = "${BOTCHAIN_RPC_URL}"
+botchain_testnet = "${BOTCHAIN_TESTNET_RPC_URL}"
 
 [etherscan]
 botchain = { key = "${BOTSCAN_API_KEY}", url = "${BOTSCAN_VERIFIER_URL}", chain = 677 }

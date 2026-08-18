@@ -6,5 +6,6 @@ out/
 cache/
 broadcast/
 .next/
+.vercel/
 dist/
 *.log
