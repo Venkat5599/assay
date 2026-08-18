@@ -6,6 +6,7 @@ import {BorrowRepay, Faucet, LendPanel, OpenSlot, PlaceBid, SubmitLoad} from "..
 import {addresses} from "@/lib/addresses";
 import {explorerAddress, explorerTx} from "@/lib/chain";
 import {usd, shortAddress, bolRef} from "@/lib/format";
+import {nameOf, useOntology} from "@/lib/useOntology";
 import {
   bookOf, COVERAGE_THRESHOLD, useDesks, usePortfolio, useWorkQueue, ZERO,
   type Ops, type Position,
@@ -126,19 +127,32 @@ export function CommandCenter({ops, go}: {ops: Ops; go: (s: string, id?: bigint)
         </section>
 
         <section>
-          <Head title="Recent activity" right="ON CHAIN" />
+          <Head title="Recent activity" right="EVERY ROW IS A TRANSACTION" />
           {ops.audit.length === 0 ? (
             <Empty>No protocol events yet on this deployment.</Empty>
           ) : (
             <div className="tablewrap">
               <table className="tbl">
-                <thead><tr><th>BLOCK</th><th>ACTION</th><th>ACTOR</th></tr></thead>
+                <thead>
+                  <tr><th>BLOCK</th><th>ACTION</th><th>ACTOR</th><th>VERIFY</th></tr>
+                </thead>
                 <tbody>
                   {ops.audit.slice(0, 8).map((a) => (
                     <tr key={a.hash + a.action}>
                       <td className="t-id">{a.block.toString()}</td>
                       <td>{a.action}</td>
                       <td className="t-dim">{bookOf(a.actor)}</td>
+                      <td>
+                        <a
+                          className="verify"
+                          href={explorerTx(a.hash)}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {a.hash.slice(0, 10)}
+                        </a>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -189,6 +203,7 @@ export function WorkQueue({ops, go}: {ops: Ops; go: (s: string, id?: bigint) => 
 
 export function Portfolio({ops, go}: {ops: Ops; go: (s: string, id?: bigint) => void}) {
   const p = usePortfolio(ops.positions);
+  const {entities} = useOntology();
   return (
     <>
       <div className="metrics">
@@ -218,7 +233,7 @@ export function Portfolio({ops, go}: {ops: Ops; go: (s: string, id?: bigint) => 
               {ops.positions.map((x) => (
                 <tr key={x.id.toString()} onClick={() => go("case", x.id)}>
                   <td className="t-id">{bolRef(x.docHash)}</td>
-                  <td className="t-dim">{shortAddress(x.obligor)}</td>
+                  <td className="t-dim">{nameOf(entities, x.obligor) ?? shortAddress(x.obligor)}</td>
                   <td className="t-num">{usd(x.face)}</td>
                   <td className="t-num">{usd(x.floor)}</td>
                   <td className="t-num">{usd(x.cap)}</td>
@@ -246,6 +261,7 @@ export function Portfolio({ops, go}: {ops: Ops; go: (s: string, id?: bigint) => 
 
 export function Exposure({ops}: {ops: Ops}) {
   const p = usePortfolio(ops.positions);
+  const {entities} = useOntology();
 
   // Risk band by coverage, which is the only risk signal the chain actually
   // carries. Grades and confidence scores are agent-side and not on chain.
@@ -275,7 +291,7 @@ export function Exposure({ops}: {ops: Ops}) {
             <tbody>
               {p.exposure.map((e) => (
                 <tr key={e.addr}>
-                  <td className="t-id">{shortAddress(e.addr)}</td>
+                  <td className="t-id">{nameOf(entities, e.addr) ?? shortAddress(e.addr)}</td>
                   <td className="t-num">{usd(e.amount)}</td>
                   <td className="t-num">{e.share.toFixed(1)}%</td>
                   <td><Bar value={e.share} tone={e.share > 40 ? "bad" : e.share > 25 ? "warn" : undefined} /></td>
@@ -296,7 +312,7 @@ export function Exposure({ops}: {ops: Ops}) {
             <tbody>
               {matrix.map(([addr, [lo, mid, hi]]) => (
                 <tr key={addr}>
-                  <td className="t-id">{shortAddress(addr)}</td>
+                  <td className="t-id">{nameOf(entities, addr) ?? shortAddress(addr)}</td>
                   <td className="t-num">{lo > 0n ? usd(lo) : "--"}</td>
                   <td className={`t-num${mid > 0n ? " warn" : ""}`}>{mid > 0n ? usd(mid) : "--"}</td>
                   <td className={`t-num${hi > 0n ? " bad" : ""}`}>{hi > 0n ? usd(hi) : "--"}</td>
@@ -864,5 +880,64 @@ export function Origination({ops}: {ops: Ops}) {
       <SubmitLoad onDone={ops.refresh} />
       <Faucet />
     </div>
+  );
+}
+
+
+/* --------------------------------------------------------- counterparties */
+
+export function Counterparties() {
+  const {list} = useOntology();
+
+  return (
+    <>
+      <Head title="Counterparties" right={`${list.length} ON CHAIN`} />
+      {list.length === 0 ? (
+        <Empty>
+          <b>No counterparties recorded.</b> The registry is deployed but empty, so obligors
+          render as addresses.
+        </Empty>
+      ) : (
+        <div className="tablewrap">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>ENTITY</th><th>ROLE</th><th>JURISDICTION</th>
+                <th>ADDRESS</th><th>STATUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((e) => (
+                <tr key={e.address}>
+                  <td className="t-id">{e.name}</td>
+                  <td>{e.role}</td>
+                  <td className="t-dim">{e.jurisdiction || "--"}</td>
+                  <td className="t-dim">
+                    <a href={explorerAddress(e.address)} target="_blank" rel="noreferrer">
+                      {shortAddress(e.address)}
+                    </a>
+                  </td>
+                  <td>
+                    <span
+                      className={`chip ${
+                        e.status === "Verified" ? "ok" : e.status === "Restricted" ? "bad" : "warn"
+                      }`}
+                    >
+                      {e.status.toUpperCase()}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="callout">
+        <b>Verification here is a governance claim, not a proof.</b> A registrar asserted the
+        entity is who it says. The cryptographic commitment in this protocol is the document
+        hash on the receivable; this registry is the social layer beside it, and the two are
+        deliberately different kinds of fact.
+      </p>
+    </>
   );
 }

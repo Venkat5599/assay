@@ -7,7 +7,7 @@ import {Overlay} from "../components/Reveal";
 import {Wallet} from "../components/Wallet";
 import {
   Audit, BidBook, CommandCenter, Desks, Exposure, Funding, LoanBook, Origination,
-  Portfolio, Protocol, RiskMonitor, Servicing, Underwriting, WorkQueue,
+  Portfolio, Protocol, RiskMonitor, Servicing, Underwriting, WorkQueue, Counterparties,
 } from "./Screens";
 import {CreditCase} from "./CreditCase";
 import {SettleButton} from "../components/Forms";
@@ -27,7 +27,7 @@ import {useToken} from "@/lib/useChain";
 
 type Screen =
   | "command" | "queue" | "portfolio" | "exposure"
-  | "receivables" | "origination"
+  | "receivables" | "origination" | "counterparties"
   | "underwriting" | "bidbook" | "risk"
   | "funding" | "loanbook"
   | "servicing"
@@ -49,6 +49,7 @@ const NAV: {group: string; items: {id: Screen; label: string}[]}[] = [
     group: "Origination",
     items: [
       {id: "receivables", label: "Receivables"},
+      {id: "counterparties", label: "Counterparties"},
       {id: "origination", label: "New facility"},
     ],
   },
@@ -86,7 +87,7 @@ const NAV: {group: string; items: {id: Screen; label: string}[]}[] = [
 
 const TITLES: Record<Screen, string> = {
   command: "Command center", queue: "Work queue", portfolio: "Portfolio", exposure: "Exposure",
-  receivables: "Receivables", origination: "New facility", underwriting: "Underwriting desk",
+  receivables: "Receivables", counterparties: "Counterparties", origination: "New facility", underwriting: "Underwriting desk",
   bidbook: "Bid book", risk: "Risk monitor", funding: "Funding", loanbook: "Loan book",
   servicing: "Settlement operations", desks: "Underwriter agents", audit: "Audit trail",
   protocol: "Protocol", case: "Credit case",
@@ -161,6 +162,7 @@ export default function Workstation() {
       case "portfolio":
       case "receivables": return <Portfolio ops={ops} go={go} />;
       case "exposure": return <Exposure ops={ops} />;
+      case "counterparties": return <Counterparties />;
       case "origination": return <Origination ops={ops} />;
       case "underwriting": return <Underwriting ops={ops} go={go} />;
       case "bidbook": return <BidBook ops={ops} selected={selected} go={go} />;

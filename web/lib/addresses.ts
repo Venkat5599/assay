@@ -8,6 +8,7 @@ export const addresses = {
   market: env(process.env.NEXT_PUBLIC_FIRM_BID_MARKET),
   vault: env(process.env.NEXT_PUBLIC_LOAN_VAULT),
   stable: env(process.env.NEXT_PUBLIC_STABLE_TOKEN),
+  counterparty: env(process.env.NEXT_PUBLIC_COUNTERPARTY_REGISTRY),
 };
 
 /**
