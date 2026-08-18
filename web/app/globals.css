@@ -2528,3 +2528,47 @@ body:has(.ws) {
 .ws-side {
   overscroll-behavior: contain;
 }
+
+/* ------------------------------------------------------- line reveals */
+
+/* The mask clips; the glyphs inside are always fully opaque. With no JS the
+   inner span has no transform, so the line simply reads normally. */
+.line-mask {
+  display: block;
+  overflow: hidden;
+}
+
+.line-inner {
+  display: block;
+  will-change: transform;
+}
+
+/* Reveals are transforms and clips, never opacity - a stranded frame must
+   leave content readable, not invisible. */
+[data-reveal] {
+  clip-path: inset(0% 0% 0% 0%);
+}
+
+.reduce-toggle {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--rule-strong);
+  color: var(--ink-3);
+  background: transparent;
+  cursor: pointer;
+  transition: color 120ms linear, border-color 120ms linear;
+}
+
+.reduce-toggle:hover {
+  color: var(--ink);
+  border-color: var(--acid-line);
+}
+
+/* Motion off: kill the scroll work outright rather than shortening it. */
+html[data-reduce-motion="1"] .ticker-track {
+  animation: none;
+}
+
+html[data-reduce-motion="1"] * {
+  transition-duration: 0.001ms !important;
+  animation-duration: 0.001ms !important;
+}

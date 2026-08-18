@@ -7,6 +7,7 @@ import {Faq} from "./components/Faq";
 import MoltenMetal from "./components/MoltenMetal";
 import {LiveBook} from "./components/LiveBook";
 import {Nav} from "./components/Nav";
+import {ReduceMotionToggle} from "./components/Motion";
 import {SettlementMap} from "./components/SettlementMap";
 import {Wallet} from "./components/Wallet";
 import {marketAbi, registryAbi, vaultAbi} from "@/lib/abi";
@@ -273,7 +274,7 @@ export default function Page() {
               How it settles
             </a>
           </div>
-          <pre className="hero-plate" aria-hidden="true">
+          <pre className="hero-plate" data-parallax="6" aria-hidden="true">
 {HERO_PLATE}
           </pre>
         </div>
@@ -296,12 +297,12 @@ export default function Page() {
         </div>
 
         <section className="section pad center">
-          <h2 className="display">Freight is credit-starved by construction.</h2>
+          <h2 className="display" data-lines>Freight is credit-starved by construction.</h2>
         </section>
 
         <div className="split">
           <div>
-            <pre className="plate" aria-label="Timeline of a freight invoice">
+            <pre className="plate" data-reveal aria-label="Timeline of a freight invoice">
               {TIMELINE}
             </pre>
           </div>
@@ -349,7 +350,7 @@ export default function Page() {
         </div>
 
         <section className="section pad center">
-          <h2 className="display">Three agents. Three numbers.</h2>
+          <h2 className="display" data-lines>Three agents. Three numbers.</h2>
           <p className="section-lead">
             Asset #{LOAD.assetId.toString()}, document {LOAD.docHash}. Each agent graded this
             load independently and escrowed its own capital behind its own number. The rows
@@ -431,7 +432,7 @@ export default function Page() {
         </div>
 
         <section className="section pad center">
-          <h2 className="display">The model grades. The code prices.</h2>
+          <h2 className="display" data-lines>The model grades. The code prices.</h2>
           <p className="section-lead">
             A model that emits a number directly cannot be replayed, unit-tested, or explained
             to the carrier it just marked down. So it does not emit one. It grades the credit
@@ -445,7 +446,7 @@ export default function Page() {
         </section>
 
         <div className="pad" style={{paddingBottom: "clamp(2rem,5vh,3.5rem)"}}>
-          <div className="term">
+          <div className="term" data-reveal>
             <div className="term-bar">
               <span>RECORDED RUN &middot; CHAIN 968 &middot; TX 0xc9aa81d2</span>
               <span className="term-dot" aria-hidden="true" />
@@ -461,7 +462,7 @@ export default function Page() {
         </div>
 
         <section className="section pad center">
-          <h2 className="display">What the contracts actually do.</h2>
+          <h2 className="display" data-lines>What the contracts actually do.</h2>
         </section>
 
         <div className="grid g3">
@@ -529,6 +530,7 @@ export default function Page() {
             <a href="https://github.com/Venkat5599/assay" target="_blank" rel="noreferrer">
               SOURCE
             </a>
+            <ReduceMotionToggle />
             <span>{address ? shortAddress(address) : "NOT CONNECTED"}</span>
           </div>
           <p className="footer-word">LADING</p>
