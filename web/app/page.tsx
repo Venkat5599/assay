@@ -6,6 +6,7 @@ import {useAccount, useReadContract, useWriteContract} from "wagmi";
 import {Faq} from "./components/Faq";
 import MoltenMetal from "./components/MoltenMetal";
 import {Nav} from "./components/Nav";
+import {SettlementMap} from "./components/SettlementMap";
 import {Wallet} from "./components/Wallet";
 import {marketAbi, vaultAbi} from "@/lib/abi";
 import {addresses, isDeployed} from "@/lib/addresses";
@@ -153,31 +154,6 @@ const TIMELINE = `  DAY 0        DAY 1                          DAY 90
   ------------------------------------------------------
   The work is performed first and paid for last.`;
 
-const SETTLE = `                     +---------------------+
-                     |  PRICE  DISCOVERY   |
-                     +----------+----------+
-                                |
-     +-------------+     +------+------+     +-------------+
-     |   ORACLE    |     |  ESCROWED   |     |   AUCTION   |
-     |   severed   |-----|     BID     |-----|   severed   |
-     |     [x]     |     +------+------+     |     [x]     |
-     +-------------+            |            +-------------+
-                                |
-  +-----------------------------+------------------------------+
-  |                  ON DEFAULT  --  ONE BLOCK                  |
-  |                                                             |
-  |   +-----------+       +-------------+      +------------+   |
-  |   |  ESCROW   |------>|   LENDER    |      |  CARRIER   |   |
-  |   |  37,481   |       | made whole  |      |  surplus   |   |
-  |   +-----+-----+       +-------------+      +-----+------+   |
-  |         |                                        ^          |
-  |         v                                        |          |
-  |   +-----------+                          proceeds above     |
-  |   |  INVOICE  |----> UNDERWRITER            the debt        |
-  |   +-----------+                                             |
-  +-------------------------------------------------------------+
-
-  no auction to run    no orderbook to sell into    no oracle`;
 
 const TERMINAL = `$ bun run src/index.ts --once
 
@@ -305,7 +281,7 @@ export default function Page() {
             secondary market.
           </p>
           <div className="hero-actions">
-            <a className="btn" href="#book">
+            <a className="btn" href="/dashboard">
               See the live book <span aria-hidden="true">&gt;</span>
             </a>
             <a className="btn ghost" href="#mechanism">
@@ -364,18 +340,8 @@ export default function Page() {
           </span>
         </div>
 
-        <section className="section pad center">
-          <h2 className="display">Escrow first. Settle in one block.</h2>
-          <p className="section-lead">
-            Everything a lending protocol normally outsources to a market, LADING replaces with
-            capital somebody already committed.
-          </p>
-        </section>
-
-        <div className="pad" style={{paddingBottom: "clamp(2rem,5vh,3.5rem)"}}>
-          <pre className="plate" aria-label="Settlement path diagram">
-            {SETTLE}
-          </pre>
+        <div style={{paddingTop: "clamp(1.5rem,3vh,2.5rem)"}}>
+          <SettlementMap />
         </div>
 
         <div className="grid g3">

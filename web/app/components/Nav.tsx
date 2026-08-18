@@ -23,7 +23,7 @@ export function Nav() {
     <nav className={past ? "nav dark" : "nav"}>
       <span className="wordmark">LADING</span>
       <div className="nav-right">
-        <a className="label" href="#book">
+        <a className="label" href="/dashboard">
           Live book
         </a>
         <a className="label" href="#faq">
