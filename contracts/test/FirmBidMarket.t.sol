@@ -56,6 +56,7 @@ contract FirmBidMarketTest is Test {
         token.mint(borrower, 100_000e18);
         vm.startPrank(borrower);
         token.approve(address(market), type(uint256).max);
+        registry.setApprovalForAll(address(market), true);
         market.openSlot(assetId, 10_000e18);
         vm.stopPrank();
     }
@@ -163,10 +164,7 @@ contract FirmBidMarketTest is Test {
         vault.setDebt(assetId, 112_000e18);
         vault.setDefaulted(assetId, true);
 
-        // market must hold the asset to deliver it
-        vm.prank(borrower);
-        registry.transferFrom(borrower, address(market), assetId);
-
+        // Collateral is escrowed by `openSlot`, so the market already holds it.
         market.settleDefault(assetId);
 
         assertEq(registry.ownerOf(assetId), uwA, "asset delivered to underwriter");

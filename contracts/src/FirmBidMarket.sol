@@ -49,6 +49,7 @@ contract FirmBidMarket is ReentrancyGuardTransient, Ownable2Step {
     // ---------------------------------------------------------------- types
 
     struct Slot {
+        address owner; // asset depositor; reclaims collateral on close
         address underwriter;
         uint64 lastTick; // block number of last accrual
         bool open; // slot accepts bids
@@ -164,6 +165,13 @@ contract FirmBidMarket is ReentrancyGuardTransient, Ownable2Step {
         return _slots[assetId];
     }
 
+    /// @notice Depositor of the escrowed collateral, or zero if no open slot.
+    /// @dev The vault authenticates borrowers against this rather than against
+    ///      `ownerOf`, which is the market itself once collateral is escrowed.
+    function slotOwner(uint256 assetId) external view returns (address) {
+        return _slots[assetId].owner;
+    }
+
     /// @notice Floor as it would stand after accrual at the current block.
     /// @dev Read-only mirror of `_tick`'s decay branch, so the UI and the vault
     ///      never act on a stale floor.
@@ -198,11 +206,16 @@ contract FirmBidMarket is ReentrancyGuardTransient, Ownable2Step {
         if (premiumReserve == 0) revert ZeroAmount();
 
         s.open = true;
+        s.owner = msg.sender;
         s.lastTick = uint64(block.number);
         s.premiumReserve += premiumReserve;
         totalLiabilities += premiumReserve;
 
         escrowToken.safeTransferFrom(msg.sender, address(this), premiumReserve);
+        // Collateral is escrowed here, not at origination. A firm bid is a
+        // commitment to buy THIS asset; if the owner could sell it out from
+        // under a standing bid, the bid would be unbacked.
+        assetRegistry.transferFrom(msg.sender, address(this), assetId);
         emit SlotOpened(assetId, msg.sender, premiumReserve);
     }
 
@@ -326,19 +339,22 @@ contract FirmBidMarket is ReentrancyGuardTransient, Ownable2Step {
 
     /// @notice Asset owner closes an empty slot and reclaims unspent premium.
     function closeSlot(uint256 assetId) external nonReentrant {
-        if (assetRegistry.ownerOf(assetId) != msg.sender) {
-            revert NotAssetOwner(assetId, msg.sender);
-        }
         Slot storage s = _slots[assetId];
+        if (s.owner != msg.sender) revert NotAssetOwner(assetId, msg.sender);
         if (!s.open) revert SlotNotOpen(assetId);
         if (s.underwriter != address(0)) revert NoIncumbent(assetId);
 
+        uint256 debt = _outstanding(assetId);
+        if (debt != 0) revert DebtOutstanding(assetId, debt);
+
         uint256 refund = s.premiumReserve;
         s.open = false;
+        s.owner = address(0);
         s.premiumReserve = 0;
         totalLiabilities -= refund;
 
         if (refund != 0) escrowToken.safeTransfer(msg.sender, refund);
+        assetRegistry.transferFrom(address(this), msg.sender, assetId);
         emit SlotClosed(assetId);
     }
 
@@ -362,6 +378,7 @@ contract FirmBidMarket is ReentrancyGuardTransient, Ownable2Step {
 
         _tick(assetId);
 
+        address owner_ = s.owner;
         uint256 price = s.floor;
         uint256 escrowHeld = s.escrow;
         uint256 owed = s.accrued;
@@ -377,7 +394,14 @@ contract FirmBidMarket is ReentrancyGuardTransient, Ownable2Step {
         loanVault.absorbSettlement(assetId, price);
         escrowToken.forceApprove(address(loanVault), 0);
 
-        if (refund + reserve != 0) escrowToken.safeTransfer(uw, refund + reserve);
+        if (refund != 0) escrowToken.safeTransfer(uw, refund);
+
+        // Unspent premium returns to the borrower who funded it. Paying it to
+        // the underwriter would hand them unearned income at the moment the
+        // commitment ends - an incentive to push borrowers into default, which
+        // is the one incentive a credit protocol must never create.
+        if (reserve != 0) escrowToken.safeTransfer(owner_, reserve);
+
         assetRegistry.transferFrom(address(this), uw, assetId);
 
         emit Settled(assetId, uw, price, refund);

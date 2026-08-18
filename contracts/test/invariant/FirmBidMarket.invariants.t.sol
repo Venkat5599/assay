@@ -69,6 +69,7 @@ contract FirmBidMarketInvariants is Test {
             token.mint(borrower, 50_000e18);
             vm.startPrank(borrower);
             token.approve(address(market), type(uint256).max);
+            registry.setApprovalForAll(address(market), true);
             market.openSlot(id, 10_000e18);
             vm.stopPrank();
         }
