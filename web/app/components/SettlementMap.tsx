@@ -50,11 +50,11 @@ const NODES: Node[] = [
   {id: "carrier", label: "CARRIER", x: 8, y: 8, stages: ["settle"]},
   {id: "invoice", label: "INVOICE", sub: "collateral", x: 8, y: 40, stages: ["escrow", "settle"]},
   {id: "slot", label: "BID SLOT", sub: "contestable", x: 40, y: 24, stages: ["escrow", "contest"]},
-  {id: "escrow", label: "ESCROW", sub: "37,481", x: 40, y: 60, stages: ["escrow", "settle"]},
+  {id: "escrow", label: "ESCROW", sub: "funded", x: 40, y: 60, stages: ["escrow", "settle"]},
   {id: "lender", label: "LENDER", sub: "made whole", x: 8, y: 78, stages: ["settle"]},
-  {id: "uw1", label: "BOOK 01", sub: "28,560", x: 70, y: 6, stages: ["contest"]},
-  {id: "uw2", label: "BOOK 02", sub: "35,549", x: 70, y: 40, stages: ["contest"]},
-  {id: "uw3", label: "BOOK 03", sub: "37,481", x: 70, y: 74, stages: ["escrow", "contest", "settle"]},
+  {id: "uw1", label: "BOOK 01", sub: "outbid", x: 70, y: 6, stages: ["contest"]},
+  {id: "uw2", label: "BOOK 02", sub: "outbid", x: 70, y: 40, stages: ["contest"]},
+  {id: "uw3", label: "BOOK 03", sub: "holds slot", x: 70, y: 74, stages: ["escrow", "contest", "settle"]},
 ];
 
 const byId = (id: string) => NODES.find((n) => n.id === id)!;

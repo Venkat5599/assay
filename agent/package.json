@@ -9,7 +9,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "viem": "^2.21.55"
+    "@anthropic-ai/sdk": "^0.117.1",
+    "viem": "^2.21.55",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "typescript": "^5.7.2"

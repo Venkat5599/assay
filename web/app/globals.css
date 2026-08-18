@@ -1095,3 +1095,185 @@ figure {
   font-weight: 700;
   letter-spacing: -0.015em;
 }
+
+/* ------------------------------------------------------------ data tables */
+
+.tablewrap {
+  border: 1px solid var(--rule);
+  overflow-x: auto;
+}
+
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.tbl th {
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-align: left;
+  color: var(--faint);
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--ink-lift);
+  white-space: nowrap;
+}
+
+.tbl td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--rule);
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+.tbl tbody tr {
+  cursor: pointer;
+  transition: background 120ms linear;
+}
+
+.tbl tbody tr:hover {
+  background: var(--ink-lift);
+}
+
+.tbl tbody tr.on {
+  background: var(--panel);
+}
+
+.tbl tbody tr.on td {
+  color: var(--bone);
+}
+
+.tbl tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.t-num {
+  text-align: right;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.t-id {
+  font-family: var(--mono);
+  color: var(--bone);
+}
+
+/* A bar, not a pill: fills a fixed track so rows stay comparable. */
+.meter {
+  display: block;
+  width: 100%;
+  min-width: 5rem;
+  height: 4px;
+  background: var(--panel-lift);
+}
+
+.meter i {
+  display: block;
+  height: 100%;
+  background: var(--flare);
+  transition: width 320ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.meter.wide {
+  width: 9rem;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 0.7rem;
+}
+
+/* Status is one of three known states, so a contained label is the right
+   call here - unlike a chip wrapped round every noun on a page. */
+.chip {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  border: 1px solid var(--rule-strong);
+  color: var(--faint);
+}
+
+.chip.priced {
+  color: var(--flare);
+  border-color: var(--flare);
+}
+
+.chip.drawn {
+  color: var(--bone);
+  border-color: var(--rule-strong);
+  background: var(--panel-lift);
+}
+
+/* ------------------------------------------------------------- two columns */
+
+.cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(1.25rem, 2.5vw, 2.25rem);
+}
+
+@media (min-width: 1100px) {
+  .cols {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  }
+}
+
+.kv {
+  margin: 0;
+  border: 1px solid var(--rule);
+}
+
+.kv > div {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.kv > div:last-child {
+  border-bottom: 0;
+}
+
+.kv dt {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.kv dd {
+  margin: 0;
+  color: var(--bone);
+  font-size: 0.9rem;
+}
+
+.kv dd.mono {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  word-break: break-all;
+  color: var(--dim);
+}
+
+.kv dd b {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.actions-col {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.7rem;
+  border: 1px solid var(--rule);
+  padding: 1rem;
+}
+
+.actions-col .btn {
+  justify-content: space-between;
+}

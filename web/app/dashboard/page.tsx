@@ -3,6 +3,7 @@
 import {useState} from "react";
 import {useAccount, useReadContract, useWriteContract} from "wagmi";
 
+import {LiveBook} from "../components/LiveBook";
 import {Wallet} from "../components/Wallet";
 import {marketAbi, registryAbi, vaultAbi} from "@/lib/abi";
 import {addresses, isDeployed} from "@/lib/addresses";
@@ -10,21 +11,85 @@ import {explorerAddress, IS_TESTNET} from "@/lib/chain";
 import {usd, shortAddress} from "@/lib/format";
 
 /**
- * The book. One load per row, read from chain, with the carrier actions
- * attached to whichever load is selected in the left panel.
+ * Operations console.
+ *
+ * Every figure is read from chain. Where a value has not arrived yet it renders
+ * as "--" rather than as a placeholder that could be mistaken for data. Nothing
+ * on this page is stored in the page.
  */
 
-const LOADS = [
-  {id: 1n, bol: "BOL-88213", shipper: "Midwest Grain Cooperative", lane: "Cedar Rapids IA / Kansas City MO", terms: "Net 90"},
-  {id: 2n, bol: "BOL-90118", shipper: "Great Lakes Freight", lane: "Toledo OH / Louisville KY", terms: "Net 35"},
-  {id: 3n, bol: "BOL-77450", shipper: "Gulf Intermodal", lane: "Houston TX / Memphis TN", terms: "Net 60"},
+const ASSET_IDS = [1n, 2n, 3n];
+
+/** Agent identities are deployment config, not chain state. */
+const AGENTS = [
+  {name: "CONSERVATIVE", addr: "0xb7E28bEbBFdBbA0D7884b740cb25F358C9D9edf1"},
+  {name: "SECTOR", addr: "0x6B4Db50f8B79b739860DB1B2948243e8Af36A764"},
+  {name: "AGGRESSIVE", addr: "0xf739FAc50486662A5aB90273a87345e0486E6EC5"},
 ];
 
-const AGENTS = [
-  {name: "CONSERVATIVE", addr: "0xb7E28bEbBFdBbA0D7884b740cb25F358C9D9edf1", mandate: "Refuses grade C and below. Ceiling 50,000."},
-  {name: "SECTOR", addr: "0x6B4Db50f8B79b739860DB1B2948243e8Af36A764", mandate: "Agricultural and regional lanes. Ceiling 120,000."},
-  {name: "AGGRESSIVE", addr: "0xf739FAc50486662A5aB90273a87345e0486E6EC5", mandate: "Takes delivery willingly. Ceiling 250,000."},
-];
+const ZERO = "0x0000000000000000000000000000000000000000";
+const poll = {refetchInterval: 5000} as const;
+
+const pct = (num?: bigint, den?: bigint) =>
+  num !== undefined && den !== undefined && den > 0n ? Number((num * 10000n) / den) / 100 : 0;
+
+const dateOf = (unix?: bigint) =>
+  unix ? new Date(Number(unix) * 1000).toISOString().slice(0, 10) : "--";
+
+const daysTo = (unix?: bigint) =>
+  unix ? Math.round((Number(unix) * 1000 - Date.now()) / 86_400_000) : null;
+
+/** One row of the portfolio table. Each row owns its own reads. */
+function LoadRow({id, selected, onSelect}: {id: bigint; selected: boolean; onSelect: () => void}) {
+  const enabled = isDeployed;
+  const q = {enabled, ...poll};
+
+  const {data: r} = useReadContract({
+    abi: registryAbi, address: addresses.assetRegistry, functionName: "receivableOf",
+    args: [id], query: q,
+  });
+  const {data: floor} = useReadContract({
+    abi: marketAbi, address: addresses.market, functionName: "currentFloor",
+    args: [id], query: q,
+  });
+  const {data: debt} = useReadContract({
+    abi: vaultAbi, address: addresses.vault, functionName: "outstanding",
+    args: [id], query: q,
+  });
+  const {data: cap} = useReadContract({
+    abi: marketAbi, address: addresses.market, functionName: "maxBorrow",
+    args: [id], query: q,
+  });
+  const {data: slot} = useReadContract({
+    abi: marketAbi, address: addresses.market, functionName: "slots",
+    args: [id], query: q,
+  });
+
+  const bid = Boolean(slot?.underwriter && slot.underwriter !== ZERO);
+  const util = pct(debt as bigint | undefined, cap as bigint | undefined);
+  const advance = pct(floor as bigint | undefined, r?.faceValue);
+  const days = daysTo(r?.dueDate);
+  const status = !bid ? "UNPRICED" : (debt as bigint | undefined) ? "DRAWN" : "PRICED";
+
+  return (
+    <tr className={selected ? "on" : undefined} onClick={onSelect}>
+      <td className="t-id">#{id.toString()}</td>
+      <td className="t-num">{r ? usd(r.faceValue) : "--"}</td>
+      <td className="t-num">{usd(floor as bigint | undefined)}</td>
+      <td className="t-num">{advance ? `${advance.toFixed(0)}%` : "--"}</td>
+      <td className="t-num">{usd(debt as bigint | undefined)}</td>
+      <td>
+        <span className="meter" title={`${util.toFixed(0)}% of headroom drawn`}>
+          <i style={{width: `${Math.min(util, 100)}%`}} />
+        </span>
+      </td>
+      <td className="t-num">{days === null ? "--" : `${days}d`}</td>
+      <td>
+        <span className={`chip ${status.toLowerCase()}`}>{status}</span>
+      </td>
+    </tr>
+  );
+}
 
 export default function Dashboard() {
   const [selected, setSelected] = useState<bigint>(2n);
@@ -32,37 +97,42 @@ export default function Dashboard() {
   const {isConnected} = useAccount();
   const {writeContractAsync} = useWriteContract();
 
-  const live = isDeployed;
-  const poll = {enabled: live, refetchInterval: 4000} as const;
+  const enabled = isDeployed;
+  const q = {enabled, ...poll};
 
+  const {data: r} = useReadContract({
+    abi: registryAbi, address: addresses.assetRegistry, functionName: "receivableOf",
+    args: [selected], query: q,
+  });
   const {data: floor} = useReadContract({
     abi: marketAbi, address: addresses.market, functionName: "currentFloor",
-    args: [selected], query: poll,
+    args: [selected], query: q,
   });
   const {data: room} = useReadContract({
     abi: vaultAbi, address: addresses.vault, functionName: "availableToBorrow",
-    args: [selected], query: poll,
+    args: [selected], query: q,
   });
   const {data: debt} = useReadContract({
     abi: vaultAbi, address: addresses.vault, functionName: "outstanding",
-    args: [selected], query: poll,
+    args: [selected], query: q,
+  });
+  const {data: cap} = useReadContract({
+    abi: marketAbi, address: addresses.market, functionName: "maxBorrow",
+    args: [selected], query: q,
   });
   const {data: slot} = useReadContract({
     abi: marketAbi, address: addresses.market, functionName: "slots",
-    args: [selected], query: poll,
-  });
-  const {data: receivable} = useReadContract({
-    abi: registryAbi, address: addresses.assetRegistry, functionName: "receivableOf",
-    args: [selected], query: poll,
+    args: [selected], query: q,
   });
   const {data: defaulted} = useReadContract({
     abi: vaultAbi, address: addresses.vault, functionName: "isDefaulted",
-    args: [selected], query: poll,
+    args: [selected], query: q,
   });
 
-  const load = LOADS.find((l) => l.id === selected)!;
   const underwriter = slot?.underwriter;
-  const hasBid = Boolean(underwriter && underwriter !== "0x0000000000000000000000000000000000000000");
+  const hasBid = Boolean(underwriter && underwriter !== ZERO);
+  const util = pct(debt as bigint | undefined, cap as bigint | undefined);
+  const days = daysTo(r?.dueDate);
 
   async function run(tag: string, fn: () => Promise<unknown>) {
     setBusy(tag);
@@ -75,33 +145,32 @@ export default function Dashboard() {
     }
   }
 
-  const canAct = isConnected && live;
+  const canAct = isConnected && enabled;
 
   return (
     <div className="dash">
-      {/* ------------------------------------------------------- left panel */}
       <aside className="side">
         <div className="side-brand">
           <a href="/">LADING</a>
         </div>
 
         <div className="side-group">
-          <span className="label">Open loads</span>
-          {LOADS.map((l) => (
+          <span className="label">Portfolio</span>
+          {ASSET_IDS.map((id) => (
             <button
-              key={l.bol}
-              className={l.id === selected ? "side-link on" : "side-link"}
-              onClick={() => setSelected(l.id)}
-              aria-current={l.id === selected}
+              key={id.toString()}
+              className={id === selected ? "side-link on" : "side-link"}
+              onClick={() => setSelected(id)}
+              aria-current={id === selected}
             >
-              <span>{l.bol}</span>
-              <span>#{l.id.toString()}</span>
+              <span>ASSET #{id.toString()}</span>
+              <span>{id === selected ? "open" : ""}</span>
             </button>
           ))}
         </div>
 
         <div className="side-group">
-          <span className="label">Underwriters</span>
+          <span className="label">Underwriter books</span>
           {AGENTS.map((a) => (
             <a
               key={a.name}
@@ -118,25 +187,27 @@ export default function Dashboard() {
 
         <div className="side-group">
           <span className="label">Contracts</span>
-          {[
-            ["MARKET", addresses.market],
-            ["VAULT", addresses.vault],
-            ["REGISTRY", addresses.assetRegistry],
-          ].map(([name, addr]) =>
+          {(
+            [
+              ["MARKET", addresses.market],
+              ["VAULT", addresses.vault],
+              ["REGISTRY", addresses.assetRegistry],
+            ] as const
+          ).map(([name, addr]) =>
             addr ? (
               <a
-                key={name as string}
+                key={name}
                 className="side-link"
-                href={explorerAddress(addr as string)}
+                href={explorerAddress(addr)}
                 target="_blank"
                 rel="noreferrer"
               >
-                <span>{name as string}</span>
-                <span>{shortAddress(addr as string)}</span>
+                <span>{name}</span>
+                <span>{shortAddress(addr)}</span>
               </a>
             ) : (
-              <span className="side-link" key={name as string}>
-                <span>{name as string}</span>
+              <span className="side-link" key={name}>
+                <span>{name}</span>
                 <span>pending</span>
               </span>
             ),
@@ -144,22 +215,21 @@ export default function Dashboard() {
         </div>
 
         <div className="side-foot">
-          <div>NETWORK {IS_TESTNET ? "BOT CHAIN TESTNET 968" : "BOT CHAIN 677"}</div>
-          <div>{live ? "READS LIVE" : "ADDRESSES UNSET"}</div>
+          <div>{IS_TESTNET ? "BOT CHAIN TESTNET 968" : "BOT CHAIN 677"}</div>
+          <div>{enabled ? "READS LIVE" : "ADDRESSES UNSET"}</div>
         </div>
       </aside>
 
-      {/* -------------------------------------------------------- main pane */}
       <main className="dash-main">
         <div className="dash-bar">
           <div>
-            <div className="dash-title">{load.bol}</div>
-            <div className="num">{load.shipper}</div>
+            <div className="dash-title">Asset #{selected.toString()}</div>
+            <div className="num">{r ? `DOC ${r.docHash.slice(0, 26)}...` : "READING REGISTRY"}</div>
           </div>
           <div className="hero-actions" style={{marginTop: 0}}>
             <span className="live-dot">
               <i aria-hidden="true" />
-              {live ? "POLLING CHAIN" : "OFFLINE"}
+              {enabled ? "POLLING CHAIN" : "OFFLINE"}
             </span>
             <Wallet />
           </div>
@@ -169,18 +239,18 @@ export default function Dashboard() {
           <div className="stats">
             <div>
               <span className="label">FACE VALUE</span>
-              <div className="stat-figure">{receivable ? usd(receivable.faceValue) : "--"}</div>
-              <div className="stat-note">{load.terms}</div>
+              <div className="stat-figure">{r ? usd(r.faceValue) : "--"}</div>
+              <div className="stat-note">due {dateOf(r?.dueDate)}</div>
             </div>
             <div>
               <span className="label">STANDING BID</span>
               <div className="stat-figure">{usd(floor as bigint | undefined)}</div>
-              <div className="stat-note">{hasBid ? "escrowed in full" : "no bid yet"}</div>
+              <div className="stat-note">{hasBid ? "escrowed in full" : "no bid"}</div>
             </div>
             <div>
               <span className="label">DRAWABLE</span>
               <div className="stat-figure">{usd(room as bigint | undefined)}</div>
-              <div className="stat-note">floor less haircut</div>
+              <div className="stat-note">after haircut</div>
             </div>
             <div>
               <span className="label">OUTSTANDING</span>
@@ -190,93 +260,144 @@ export default function Dashboard() {
           </div>
 
           <div className="panel-title">
-            <h2>Load</h2>
-            <span className="num">ASSET #{selected.toString()}</span>
+            <h2>Portfolio</h2>
+            <span className="num">{ASSET_IDS.length} REGISTERED</span>
           </div>
-          <div className="book">
-            {[
-              ["LANE", load.lane],
-              ["SHIPPER", load.shipper],
-              ["TERMS", load.terms],
-              ["OBLIGOR", receivable ? shortAddress(receivable.debtor) : "--"],
-              [
-                "DOC HASH",
-                receivable ? `${receivable.docHash.slice(0, 18)}...` : "--",
-              ],
-              ["INCUMBENT", hasBid ? shortAddress(underwriter) : "none"],
-            ].map(([k, v]) => (
-              <div className="book-row" key={k as string}>
-                <span className="book-name">{k as string}</span>
-                <span className="book-grade" />
-                <span className="book-price" style={{fontSize: "0.82rem", fontWeight: 400}}>
-                  {v as string}
-                </span>
-                <span className="book-why" />
+          <div className="tablewrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>ASSET</th>
+                  <th className="t-num">FACE</th>
+                  <th className="t-num">FLOOR</th>
+                  <th className="t-num">ADV</th>
+                  <th className="t-num">DEBT</th>
+                  <th>UTILISATION</th>
+                  <th className="t-num">DUE</th>
+                  <th>STATUS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ASSET_IDS.map((id) => (
+                  <LoadRow
+                    key={id.toString()}
+                    id={id}
+                    selected={id === selected}
+                    onSelect={() => setSelected(id)}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="cols">
+            <section>
+              <div className="panel-title">
+                <h2>Position</h2>
+                <span className="num">ASSET #{selected.toString()}</span>
               </div>
-            ))}
+              <dl className="kv">
+                <div>
+                  <dt>Headroom used</dt>
+                  <dd>
+                    <span className="meter wide">
+                      <i style={{width: `${Math.min(util, 100)}%`}} />
+                    </span>
+                    <b>{util.toFixed(1)}%</b>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Days to settlement</dt>
+                  <dd>{days === null ? "--" : days}</dd>
+                </div>
+                <div>
+                  <dt>Obligor</dt>
+                  <dd className="mono">{r ? r.debtor : "--"}</dd>
+                </div>
+                <div>
+                  <dt>Document hash</dt>
+                  <dd className="mono">{r ? r.docHash : "--"}</dd>
+                </div>
+                <div>
+                  <dt>Incumbent</dt>
+                  <dd className="mono">{hasBid ? (underwriter as string) : "none"}</dd>
+                </div>
+                <div>
+                  <dt>Premium reserve</dt>
+                  <dd>{slot ? usd(slot.premiumReserve) : "--"}</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section>
+              <div className="panel-title">
+                <h2>Actions</h2>
+                <span className="num">{canAct ? "SIGNER READY" : "CONNECT WALLET"}</span>
+              </div>
+              <div className="actions-col">
+                <button
+                  className="btn onDark"
+                  disabled={!canAct || busy !== null || !room}
+                  onClick={() =>
+                    run("borrow", () =>
+                      writeContractAsync({
+                        abi: vaultAbi,
+                        address: addresses.vault!,
+                        functionName: "borrow",
+                        args: [selected, (room as bigint) ?? 0n],
+                      }),
+                    )
+                  }
+                >
+                  {busy === "borrow" ? "Drawing" : "Draw maximum"}{" "}
+                  <span aria-hidden="true">&gt;</span>
+                </button>
+                <button
+                  className="btn onDark"
+                  disabled={!canAct || busy !== null || !debt}
+                  onClick={() =>
+                    run("repay", () =>
+                      writeContractAsync({
+                        abi: vaultAbi,
+                        address: addresses.vault!,
+                        functionName: "repay",
+                        args: [selected, (debt as bigint) ?? 0n],
+                      }),
+                    )
+                  }
+                >
+                  {busy === "repay" ? "Repaying" : "Repay in full"}
+                </button>
+                <button
+                  className="btn onDark"
+                  disabled={!canAct || busy !== null || !defaulted}
+                  onClick={() =>
+                    run("settle", () =>
+                      writeContractAsync({
+                        abi: marketAbi,
+                        address: addresses.market!,
+                        functionName: "settleDefault",
+                        args: [selected],
+                      }),
+                    )
+                  }
+                >
+                  {busy === "settle" ? "Settling" : "Settle default"}
+                </button>
+                <p className="callout" style={{marginTop: "0.25rem"}}>
+                  <b>Settle default stays disabled until the position is callable.</b> It opens
+                  when the receivable matures unpaid, or when floor decay compresses headroom
+                  below the debt. The contract enforces this regardless of this page.
+                </p>
+              </div>
+            </section>
           </div>
 
           <div className="panel-title">
-            <h2>Carrier actions</h2>
-            <span className="num">{canAct ? "READY" : "CONNECT A WALLET"}</span>
+            <h2>Order book</h2>
+            <span className="num">BidPlaced LOGS</span>
           </div>
-          <div className="hero-actions" style={{marginTop: 0}}>
-            <button
-              className="btn onDark"
-              disabled={!canAct || busy !== null || !room}
-              onClick={() =>
-                run("borrow", () =>
-                  writeContractAsync({
-                    abi: vaultAbi,
-                    address: addresses.vault!,
-                    functionName: "borrow",
-                    args: [selected, (room as bigint) ?? 0n],
-                  }),
-                )
-              }
-            >
-              {busy === "borrow" ? "Drawing" : "Draw maximum"} <span aria-hidden="true">&gt;</span>
-            </button>
-            <button
-              className="btn onDark"
-              disabled={!canAct || busy !== null || !debt}
-              onClick={() =>
-                run("repay", () =>
-                  writeContractAsync({
-                    abi: vaultAbi,
-                    address: addresses.vault!,
-                    functionName: "repay",
-                    args: [selected, (debt as bigint) ?? 0n],
-                  }),
-                )
-              }
-            >
-              {busy === "repay" ? "Repaying" : "Repay in full"}
-            </button>
-            <button
-              className="btn onDark"
-              disabled={!canAct || busy !== null || !defaulted}
-              onClick={() =>
-                run("settle", () =>
-                  writeContractAsync({
-                    abi: marketAbi,
-                    address: addresses.market!,
-                    functionName: "settleDefault",
-                    args: [selected],
-                  }),
-                )
-              }
-            >
-              {busy === "settle" ? "Settling" : "Settle default"}
-            </button>
-          </div>
-
-          <p className="callout">
-            <b>Settle default is disabled until the position is actually callable.</b> It becomes
-            available when the receivable matures unpaid, or when floor decay compresses headroom
-            below the outstanding debt. The contract enforces this regardless of what this page
-            shows.
-          </p>
+          <LiveBook assetId={selected} />
         </div>
       </main>
     </div>

@@ -5,10 +5,11 @@ import {useAccount, useReadContract, useWriteContract} from "wagmi";
 
 import {Faq} from "./components/Faq";
 import MoltenMetal from "./components/MoltenMetal";
+import {LiveBook} from "./components/LiveBook";
 import {Nav} from "./components/Nav";
 import {SettlementMap} from "./components/SettlementMap";
 import {Wallet} from "./components/Wallet";
-import {marketAbi, vaultAbi} from "@/lib/abi";
+import {marketAbi, registryAbi, vaultAbi} from "@/lib/abi";
 import {addresses, isDeployed} from "@/lib/addresses";
 import {explorerAddress, IS_TESTNET} from "@/lib/chain";
 import {usd, shortAddress} from "@/lib/format";
@@ -19,13 +20,9 @@ import {usd, shortAddress} from "@/lib/format";
  * terms, present so the page renders completely before any RPC returns.
  */
 const LOAD = {
+  /** Registered on BOT Chain testnet. Only these fields exist on chain. */
   assetId: 2n,
-  bol: "BOL-90118",
-  shipper: "Great Lakes Freight",
-  lane: "Toledo, OH to Louisville, KY",
-  commodity: "Dry van, 38,400 lb",
-  terms: "Net 35",
-  faceValue: 42_000n * 10n ** 18n,
+  docHash: "0x20355c1e4181601b",
 };
 
 const TICKER = [
@@ -116,27 +113,7 @@ const CAPABILITIES = [
   },
 ];
 
-const BOOK = [
-  {
-    name: "CONSERVATIVE",
-    grade: "GRADE B",
-    price: "28,560",
-    why: "Prices the tail it cannot hedge. Short 34-day tail, but sizeable relative to the book.",
-  },
-  {
-    name: "SECTOR",
-    grade: "GRADE A",
-    price: "35,549",
-    why: "Underwrites these lanes weekly. Comfortable size, and this book knows the obligor.",
-  },
-  {
-    name: "AGGRESSIVE",
-    grade: "GRADE A",
-    price: "37,481",
-    why: "Treats the invoice as an asset it wants, not a risk it tolerates. Holds the slot.",
-    lead: true,
-  },
-];
+
 
 const TIMELINE = `  DAY 0        DAY 1                          DAY 90
   +------+     +--------------------------+   +------+
@@ -177,17 +154,17 @@ asset #3 . face 180,000 . doc 0x532080aa
   standing floor -> 125,712`;
 
 const HERO_PLATE = `+------------------------------------+
-|  B I L L   O F   L A D I N G       |
+|  F I R M   B I D   M A R K E T     |
 +------------------------------------+
-|  NO.       BOL-90118               |
-|  SHIPPER   GREAT LAKES FREIGHT     |
-|  LANE      TOLEDO OH / LOUISVILLE  |
-|  TERMS     NET 35                  |
-|  FACE      42,000.00               |
+|  ORACLE                 [ severed ]|
+|  AUCTION                [ severed ]|
+|  SECONDARY MARKET       [ severed ]|
 +------------------------------------+
-|  STANDING BID         37,481.00    |
-|  ESCROWED             100%         |
-|  SETTLES IN           1 BLOCK      |
+|  PURCHASE PRICE      ESCROWED 100% |
+|  FUNDED              PRE-ORIGINATION|
+|  SETTLEMENT               1 BLOCK  |
++------------------------------------+
+|  READ LIVE FROM CHAIN              |
 +------------------------------------+`;
 
 export default function Page() {
@@ -219,15 +196,23 @@ export default function Page() {
     args: [LOAD.assetId],
     query: poll,
   });
+  const {data: receivable} = useReadContract({
+    abi: registryAbi,
+    address: addresses.assetRegistry,
+    functionName: "receivableOf",
+    args: [LOAD.assetId],
+    query: poll,
+  });
+  const face = receivable?.faceValue;
 
   const figures = useMemo(
     () => [
-      {k: "FACE VALUE", v: usd(LOAD.faceValue), n: "as invoiced"},
-      {k: "STANDING BID", v: live ? usd(floor) : "37,481", n: "capital escrowed"},
-      {k: "DRAWABLE", v: live ? usd(room) : "29,985", n: "floor less haircut"},
-      {k: "OUTSTANDING", v: live ? usd(debt) : "0", n: "principal plus interest"},
+      {k: "FACE VALUE", v: usd(face), n: "from AssetRegistry"},
+      {k: "STANDING BID", v: usd(floor as bigint | undefined), n: "capital escrowed"},
+      {k: "DRAWABLE", v: usd(room as bigint | undefined), n: "floor less haircut"},
+      {k: "OUTSTANDING", v: usd(debt as bigint | undefined), n: "principal plus interest"},
     ],
-    [live, floor, room, debt],
+    [floor, room, debt, face],
   );
 
   async function run(tag: string, fn: () => Promise<unknown>) {
@@ -366,9 +351,9 @@ export default function Page() {
         <section className="section pad center">
           <h2 className="display">Three agents. Three numbers.</h2>
           <p className="section-lead">
-            {LOAD.bol} &mdash; {LOAD.shipper}, {LOAD.lane}, {LOAD.commodity}, {LOAD.terms}. Each
-            agent graded this load independently and escrowed its own capital behind its own
-            number. The aggressive book holds the slot.
+            Asset #{LOAD.assetId.toString()}, document {LOAD.docHash}. Each agent graded this
+            load independently and escrowed its own capital behind its own number. The rows
+            below are BidPlaced logs, read from chain on every poll.
           </p>
         </section>
 
@@ -383,21 +368,8 @@ export default function Page() {
             ))}
           </div>
 
-          <div className="book">
-            {BOOK.map((b) => (
-              <div className={b.lead ? "book-row lead" : "book-row"} key={b.name}>
-                <span className="book-name">
-                  <span className="caret" aria-hidden="true">
-                    {b.lead ? ">>" : "--"}
-                  </span>
-                  {b.name}
-                </span>
-                <span className="book-grade">{b.grade}</span>
-                <span className="book-price">{b.price}</span>
-                <span className="book-why">{b.why}</span>
-              </div>
-            ))}
-          </div>
+          <LiveBook assetId={LOAD.assetId} />
+
 
           <div className="hero-actions">
             <Wallet />
@@ -465,12 +437,17 @@ export default function Page() {
             to the carrier it just marked down. So it does not emit one. It grades the credit
             and writes a rationale; auditable arithmetic turns that grade into a floor.
           </p>
+          <p className=section-lead>
+            Below is a recorded sweep, not a simulation. Each BID line settled as a real
+            transaction on chain 968 and moved the agent&rsquo;s own balance. The live book is
+            on the dashboard.
+          </p>
         </section>
 
         <div className="pad" style={{paddingBottom: "clamp(2rem,5vh,3.5rem)"}}>
           <div className="term">
             <div className="term-bar">
-              <span>lading://agents &middot; chain 968</span>
+              <span>RECORDED RUN &middot; CHAIN 968 &middot; TX 0xc9aa81d2</span>
               <span className="term-dot" aria-hidden="true" />
             </div>
             <pre className="term-body">{TERMINAL}</pre>

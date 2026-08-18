@@ -1,3 +1,7 @@
+import Anthropic from "@anthropic-ai/sdk";
+import {zodOutputFormat} from "@anthropic-ai/sdk/helpers/zod";
+import {z} from "zod";
+
 import type {Assessment, Grade, Load, Mandate} from "./types";
 
 /**
@@ -11,19 +15,36 @@ import type {Assessment, Grade, Load, Mandate} from "./types";
  * graded rationale, converted to a price by arithmetic anyone can read, is
  * defensible on all three counts.
  *
- * With ANTHROPIC_API_KEY set the grade comes from Claude reading the load.
- * Without it the same inputs run through the rubric below. Every bid records
- * which path produced it in `source`, so the provenance is never ambiguous.
+ * With credentials present the grade comes from Claude reading the load.
+ * Without them the same inputs run through the rubric below. Every bid records
+ * which path produced it in `source`, so the provenance of a number that moved
+ * real capital is never ambiguous.
  */
 
 const DAY = 86_400n;
 const PLACEHOLDER_OBLIGOR = "0x000000000000000000000000000000000000dEaD";
 
+/**
+ * Structured output schema. The model fills exactly this and nothing else -
+ * no prose to parse, no JSON to repair, and notably no price field, because
+ * the model is not permitted to set one.
+ */
+const AssessmentSchema = z.object({
+  grade: z.enum(["A", "B", "C", "D", "REJECT"]),
+  rationale: z.string(),
+});
+
+/** Instantiated lazily so the module imports cleanly with no credentials. */
+let client: Anthropic | null = null;
+function anthropic(): Anthropic {
+  if (!client) client = new Anthropic();
+  return client;
+}
+
 export async function assess(load: Load, mandate: Mandate): Promise<Assessment> {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (key) {
+  if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) {
     try {
-      return await assessWithModel(load, mandate, key);
+      return await assessWithModel(load, mandate);
     } catch (err) {
       console.warn(`  model unavailable, using rubric: ${(err as Error).message}`);
     }
@@ -31,7 +52,7 @@ export async function assess(load: Load, mandate: Mandate): Promise<Assessment> 
   return assessWithRubric(load, mandate);
 }
 
-/** Deterministic, replayable, and the documented default. */
+/** Deterministic, replayable, and the documented fallback. */
 export function assessWithRubric(load: Load, mandate: Mandate): Assessment {
   const face = Number(load.faceValue / 10n ** 18n);
   const daysOut = Number((load.dueDate - BigInt(Math.floor(Date.now() / 1000))) / DAY);
@@ -70,50 +91,38 @@ export function assessWithRubric(load: Load, mandate: Mandate): Assessment {
   return {grade, rationale: `${mandate.bias}; ${reasons.join("; ")}.`, source: "rubric"};
 }
 
-async function assessWithModel(
-  load: Load,
-  mandate: Mandate,
-  apiKey: string,
-): Promise<Assessment> {
+async function assessWithModel(load: Load, mandate: Mandate): Promise<Assessment> {
   const face = Number(load.faceValue / 10n ** 18n);
   const daysOut = Number((load.dueDate - BigInt(Math.floor(Date.now() / 1000))) / DAY);
 
-  const system = [
-    "You are a freight receivables underwriter.",
-    "You are committing your own capital to BUY this invoice at a price you set,",
-    "so a generous grade costs you money when it is wrong.",
-    'Reply with strict JSON only: {"grade":"A|B|C|D|REJECT","rationale":"one sentence under 160 characters"}.',
-    "Grade the credit. Never state a price.",
-  ].join(" ");
-
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-5",
-      max_tokens: 300,
-      system,
-      messages: [
-        {
-          role: "user",
-          content: [
-            `Book mandate: ${mandate.bias}`,
-            `Face value: ${face} USD`,
-            `Days to settlement: ${daysOut}`,
-            `Obligor: ${load.debtor}`,
-            `Document hash: ${load.docHash}`,
-          ].join("\n"),
-        },
-      ],
-    }),
+  const response = await anthropic().messages.parse({
+    model: "claude-opus-5",
+    max_tokens: 2048,
+    system: [
+      "You are a freight receivables underwriter with your own capital at risk.",
+      "You are committing to BUY this invoice at a price derived from your grade,",
+      "so a generous grade costs you money whenever it is wrong.",
+      "Grade the credit only. Never state, imply, or reason toward a price.",
+      "Keep the rationale to one sentence a carrier would understand.",
+    ].join(" "),
+    messages: [
+      {
+        role: "user",
+        content: [
+          `Book mandate: ${mandate.bias}.`,
+          `This book refuses grades: ${mandate.refuses.join(", ") || "none"}.`,
+          `Face value: ${face} USD`,
+          `Days to settlement: ${daysOut}`,
+          `Obligor address: ${load.debtor}`,
+          `Document hash: ${load.docHash}`,
+        ].join("\n"),
+      },
+    ],
+    output_config: {format: zodOutputFormat(AssessmentSchema)},
   });
 
-  if (!res.ok) throw new Error(`anthropic ${res.status}`);
-  const body = (await res.json()) as {content: {text: string}[]};
-  const parsed = JSON.parse(body.content[0]!.text) as {grade: Grade; rationale: string};
+  const parsed = response.parsed_output;
+  if (!parsed) throw new Error("model returned no parseable assessment");
+
   return {grade: parsed.grade, rationale: parsed.rationale, source: "model"};
 }
