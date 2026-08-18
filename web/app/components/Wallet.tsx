@@ -15,29 +15,29 @@ export function Wallet() {
     const injected = connectors[0];
     return (
       <button
-        className="act"
+        className="btn flare"
         disabled={!injected || isPending}
         onClick={() => injected && connect({connector: injected})}
       >
         {isPending ? "CONNECTING" : "CONNECT WALLET"}
-        <span className="caret">&rsaquo;</span>
+        <span aria-hidden="true">&gt;</span>
       </button>
     );
   }
 
   if (chainId !== botChain.id) {
     return (
-      <button className="act" onClick={() => switchChain({chainId: botChain.id})}>
+      <button className="btn flare" onClick={() => switchChain({chainId: botChain.id})}>
         SWITCH TO BOT CHAIN
-        <span className="caret">&rsaquo;</span>
+        <span aria-hidden="true">&gt;</span>
       </button>
     );
   }
 
   return (
-    <button className="act quiet" onClick={() => disconnect()}>
+    <button className="btn onDark" onClick={() => disconnect()}>
       {shortAddress(address)}
-      <span className="caret">&times;</span>
+      <span aria-hidden="true">x</span>
     </button>
   );
 }

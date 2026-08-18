@@ -3,49 +3,216 @@
 import {useMemo, useState} from "react";
 import {useAccount, useReadContract, useWriteContract} from "wagmi";
 
+import {Faq} from "./components/Faq";
+import MoltenMetal from "./components/MoltenMetal";
+import {Nav} from "./components/Nav";
 import {Wallet} from "./components/Wallet";
-import {marketAbi, registryAbi, vaultAbi} from "@/lib/abi";
+import {marketAbi, vaultAbi} from "@/lib/abi";
 import {addresses, isDeployed} from "@/lib/addresses";
 import {explorerAddress, IS_TESTNET} from "@/lib/chain";
 import {usd, shortAddress} from "@/lib/format";
 
 /**
- * The asset on display. One real bill of lading, registered on-chain, with its
- * document hash committed. Until contracts are deployed the page still renders
- * every figure - it simply reads them from the recorded terms rather than from
- * chain state. Content is never gated on a network call.
+ * Asset #2 on BOT Chain testnet - the load the agents actually contested.
+ * Figures are polled from the chain; the constants below are the recorded
+ * terms, present so the page renders completely before any RPC returns.
  */
 const LOAD = {
-  assetId: 1n,
-  bolNumber: "BOL-88213",
-  shipper: "Midwest Grain Cooperative",
-  lane: "Cedar Rapids, IA → Kansas City, MO",
-  commodity: "Bulk corn, 42,000 lb",
-  delivered: "2026-08-11",
-  terms: "Net 90",
-  faceValue: 18_400_00n * 10n ** 16n, // 18,400.00
-  docHash: "0x9f2c…4ab1",
+  assetId: 2n,
+  bol: "BOL-90118",
+  shipper: "Great Lakes Freight",
+  lane: "Toledo, OH to Louisville, KY",
+  commodity: "Dry van, 38,400 lb",
+  terms: "Net 35",
+  faceValue: 42_000n * 10n ** 18n,
 };
 
-/** Agent underwriters. Three mandates, three different numbers. */
-const AGENTS = [
+const TICKER = [
+  "NO ORACLE",
+  "NO AUCTION",
+  "NO SECONDARY MARKET",
+  "ESCROW BEFORE ORIGINATION",
+  "SETTLES IN ONE BLOCK",
+  "AGENT UNDERWRITERS",
+  "BOT CHAIN",
+];
+
+const PROBLEM = [
+  {
+    kicker: "CASH-FLOW INVERSION",
+    n: "001",
+    h: "The work is paid for last.",
+    p: "A carrier fuels the truck, pays the driver, and delivers the load. Then waits 60 to 90 days. The gap gets financed by whoever can least afford it.",
+  },
+  {
+    kicker: "NO ORDERBOOK",
+    n: "002",
+    h: "The collateral cannot be sold.",
+    p: "One receivable against one shipper has no market. DeFi lending stays solvent only because liquidation is instant, and instant liquidation needs a buyer standing by.",
+  },
+  {
+    kicker: "DEAD CAPITAL",
+    n: "003",
+    h: "Over-collateralisation defeats the point.",
+    p: "Demanding two to three times the loan in collateral is the standard workaround. A business borrowing against an invoice does not have it.",
+  },
+  {
+    kicker: "TRUST DOES NOT SCALE",
+    n: "004",
+    h: "Lending on a promise collapses.",
+    p: "Goldfinch took roughly 18M in defaults and wound down in June 2026. Undercollateralised credit with no funded floor has one ending.",
+  },
+];
+
+const PILLARS = [
+  {
+    kicker: "ESCROW FIRST",
+    h: "Funded before origination.",
+    p: "The underwriter escrows the full purchase price before the loan exists. The loss floor is capital already sitting in the contract, not a bid discovered at auction after something has gone wrong.",
+  },
+  {
+    kicker: "CONTESTABLE",
+    h: "Priced by competition to buy.",
+    p: "Any underwriter may displace the incumbent with a higher floor or a lower premium. Competition to purchase produces a live valuation for an asset with no comparables.",
+  },
+  {
+    kicker: "DECAY",
+    h: "Risk that updates itself.",
+    p: "An uncontested floor falls every block until headroom against the loan vanishes and the position becomes callable. Parameters move continuously, with no vote and no keeper.",
+  },
+];
+
+const CAPABILITIES = [
+  {
+    n: "01",
+    h: "Registers the paperwork, not a claim about it.",
+    p: "The bill of lading is committed as a document hash on an ERC-721 record. Hashes are unique, so pledging the same paperwork twice is rejected at registration.",
+  },
+  {
+    n: "02",
+    h: "Grades credit, then prices it separately.",
+    p: "A model emits a risk grade and a written rationale. Deterministic code turns that grade into a floor. The model never produces the number that moves capital.",
+  },
+  {
+    n: "03",
+    h: "Puts the agent's own capital behind the call.",
+    p: "A bid pulls escrow from the agent that placed it. A generous grade is paid for by whoever produced it, which is what makes the diligence real.",
+  },
+  {
+    n: "04",
+    h: "Settles default atomically.",
+    p: "Escrow to the lender, invoice to the underwriter, one block. Proceeds above the debt return to the borrower, because default must never be profitable for the pool.",
+  },
+  {
+    n: "05",
+    h: "Rejects honestly.",
+    p: "No bid means the load is not financeable, and the protocol says so plainly rather than inventing a price for it.",
+  },
+  {
+    n: "06",
+    h: "Gates participation without touching market logic.",
+    p: "A pluggable compliance module fronts borrow, lend, and underwrite. Adapting to a jurisdiction means swapping that module, not rewriting the market.",
+  },
+];
+
+const BOOK = [
   {
     name: "CONSERVATIVE",
-    floor: "14,720",
-    why: "Shipper has a clean file but the lane is thin on backhaul. Discounting for a 90-day tail I cannot hedge.",
+    grade: "GRADE B",
+    price: "28,560",
+    why: "Prices the tail it cannot hedge. Short 34-day tail, but sizeable relative to the book.",
   },
   {
     name: "SECTOR",
-    floor: "15,640",
-    why: "Grain co-ops settle. I underwrite this lane weekly and have never taken delivery on one.",
-    lead: true,
+    grade: "GRADE A",
+    price: "35,549",
+    why: "Underwrites these lanes weekly. Comfortable size, and this book knows the obligor.",
   },
   {
     name: "AGGRESSIVE",
-    floor: "15,180",
-    why: "Face value is fair and the commodity is liquid. I would rather own the receivable than miss the premium.",
+    grade: "GRADE A",
+    price: "37,481",
+    why: "Treats the invoice as an asset it wants, not a risk it tolerates. Holds the slot.",
+    lead: true,
   },
 ];
+
+const TIMELINE = `  DAY 0        DAY 1                          DAY 90
+  +------+     +--------------------------+   +------+
+  | LOAD |---->|        UNPAID GAP        |-->| PAID |
+  +------+     +--------------------------+   +------+
+     |                     |                      |
+  fuel, driver,     rent, payroll,           shipper
+  insurance         the next load            settles
+     |                     |                      |
+   CASH OUT             CASH OUT              CASH IN
+
+  ------------------------------------------------------
+  out  ####################################
+  in                                       ###########
+  ------------------------------------------------------
+  The work is performed first and paid for last.`;
+
+const SETTLE = `                     +---------------------+
+                     |  PRICE  DISCOVERY   |
+                     +----------+----------+
+                                |
+     +-------------+     +------+------+     +-------------+
+     |   ORACLE    |     |  ESCROWED   |     |   AUCTION   |
+     |   severed   |-----|     BID     |-----|   severed   |
+     |     [x]     |     +------+------+     |     [x]     |
+     +-------------+            |            +-------------+
+                                |
+  +-----------------------------+------------------------------+
+  |                  ON DEFAULT  --  ONE BLOCK                  |
+  |                                                             |
+  |   +-----------+       +-------------+      +------------+   |
+  |   |  ESCROW   |------>|   LENDER    |      |  CARRIER   |   |
+  |   |  37,481   |       | made whole  |      |  surplus   |   |
+  |   +-----+-----+       +-------------+      +-----+------+   |
+  |         |                                        ^          |
+  |         v                                        |          |
+  |   +-----------+                          proceeds above     |
+  |   |  INVOICE  |----> UNDERWRITER            the debt        |
+  |   +-----------+                                             |
+  +-------------------------------------------------------------+
+
+  no auction to run    no orderbook to sell into    no oracle`;
+
+const TERMINAL = `$ bun run src/index.ts --once
+
+LADING agents: CONSERVATIVE, SECTOR, AGGRESSIVE
+judgment: rubric
+market:   0x6438EDAeebF482212fbcf5a681Be0b698f952F05
+
+asset #2 . face 42,000 . doc 0x20355c1e
+  CONSERVATIVE  B    BID      28,560
+                short 34-day tail; sizeable relative to the book
+  SECTOR        A    BID      35,549
+                comfortable size; this book knows the obligor
+  AGGRESSIVE    A    BID      37,481
+                wants the asset; displaces the incumbent
+  standing floor -> 37,481
+
+asset #3 . face 180,000 . doc 0x532080aa
+  CONSERVATIVE  D    ABSTAIN  past this book's ceiling
+  SECTOR        D    ABSTAIN  past this book's ceiling
+  AGGRESSIVE    C    BID      125,712
+  standing floor -> 125,712`;
+
+const HERO_PLATE = `+------------------------------------+
+|  B I L L   O F   L A D I N G       |
++------------------------------------+
+|  NO.       BOL-90118               |
+|  SHIPPER   GREAT LAKES FREIGHT     |
+|  LANE      TOLEDO OH / LOUISVILLE  |
+|  TERMS     NET 35                  |
+|  FACE      42,000.00               |
++------------------------------------+
+|  STANDING BID         37,481.00    |
+|  ESCROWED             100%         |
+|  SETTLES IN           1 BLOCK      |
++------------------------------------+`;
 
 export default function Page() {
   const {address, isConnected} = useAccount();
@@ -53,43 +220,42 @@ export default function Page() {
   const {writeContractAsync} = useWriteContract();
 
   const live = isDeployed;
+  const poll = {enabled: live, refetchInterval: 4000} as const;
 
   const {data: floor} = useReadContract({
     abi: marketAbi,
     address: addresses.market,
     functionName: "currentFloor",
     args: [LOAD.assetId],
-    query: {enabled: live, refetchInterval: 3000},
+    query: poll,
   });
-
   const {data: room} = useReadContract({
     abi: vaultAbi,
     address: addresses.vault,
     functionName: "availableToBorrow",
     args: [LOAD.assetId],
-    query: {enabled: live, refetchInterval: 3000},
+    query: poll,
   });
-
   const {data: debt} = useReadContract({
     abi: vaultAbi,
     address: addresses.vault,
     functionName: "outstanding",
     args: [LOAD.assetId],
-    query: {enabled: live, refetchInterval: 3000},
+    query: poll,
   });
 
   const figures = useMemo(
     () => [
-      {label: "FACE VALUE", value: usd(LOAD.faceValue), unit: "USD"},
-      {label: "STANDING BID", value: live ? usd(floor) : "15,640", unit: "USD"},
-      {label: "AVAILABLE TO DRAW", value: live ? usd(room) : "12,512", unit: "USD"},
-      {label: "OUTSTANDING", value: live ? usd(debt) : "0", unit: "USD"},
+      {k: "FACE VALUE", v: usd(LOAD.faceValue), n: "as invoiced"},
+      {k: "STANDING BID", v: live ? usd(floor) : "37,481", n: "capital escrowed"},
+      {k: "DRAWABLE", v: live ? usd(room) : "29,985", n: "floor less haircut"},
+      {k: "OUTSTANDING", v: live ? usd(debt) : "0", n: "principal plus interest"},
     ],
     [live, floor, room, debt],
   );
 
-  async function run(label: string, fn: () => Promise<unknown>) {
-    setBusy(label);
+  async function run(tag: string, fn: () => Promise<unknown>) {
+    setBusy(tag);
     try {
       await fn();
     } catch (err) {
@@ -103,126 +269,174 @@ export default function Page() {
 
   return (
     <>
-      <header className="shell">
-        <nav className="nav">
-          <h1 className="mark">
-            LAD<span>I</span>NG
+      <Nav />
+
+      <header className="hero">
+        {/* Decorative field. Content below is independent of it. */}
+        <MoltenMetal
+          color1="#c2331d"
+          color2="#f2704f"
+          color3="#ffd9c2"
+          speed={0.28}
+          scale={4.2}
+          detail={3}
+          glow={1.5}
+          coreSize={0.1}
+          swirl={1.1}
+          fold={-0.22}
+          blackPoint={0.06}
+          brightness={1.15}
+          colorMode="ember"
+          grain
+          grainIntensity={0.05}
+          mouseInteraction
+          mouseStrength={0.28}
+          opacity={0.62}
+        />
+        <div className="hero-inner">
+          <h1 className="display">
+            The load moved.
+            <br />
+            The money didn&rsquo;t.
           </h1>
-          <span className="nav-meta">
-            {IS_TESTNET ? "BOT CHAIN TESTNET 968" : "BOT CHAIN 677"} / FREIGHT RECEIVABLES
-          </span>
-        </nav>
+          <p className="hero-sub">
+            Credit against freight receivables. Underwriters escrow the purchase price before
+            the loan exists, so default settles in one block with no auction, no oracle, and no
+            secondary market.
+          </p>
+          <div className="hero-actions">
+            <a className="btn" href="#book">
+              See the live book <span aria-hidden="true">&gt;</span>
+            </a>
+            <a className="btn ghost" href="#mechanism">
+              How it settles
+            </a>
+          </div>
+          <pre className="hero-plate" aria-hidden="true">
+{HERO_PLATE}
+          </pre>
+        </div>
+        <div className="ticker" aria-hidden="true">
+          {[0, 1].map((dup) => (
+            <div className="ticker-track" key={dup}>
+              {TICKER.map((t) => (
+                <span key={t}>{t} &nbsp;/&nbsp;</span>
+              ))}
+            </div>
+          ))}
+        </div>
       </header>
 
-      <main className="shell">
-        <section className="hero">
-          <div>
-            <span className="stamp">DELIVERED &middot; UNPAID &middot; FINANCEABLE</span>
-            <h1>
-              The load moved.
-              <br />
-              <em>The money didn&rsquo;t.</em>
-            </h1>
-            <p>
-              Underwriters post a firm bid on this invoice and escrow the purchase price in
-              full, before any loan exists. If the carrier defaults, the escrow settles to the
-              lender and the invoice transfers to the underwriter &mdash; one block, no
-              auction, no oracle, no secondary market.
-            </p>
-            <div className="actions">
-              <Wallet />
-              <a
-                className="act quiet"
-                href="https://github.com/Venkat5599/assay"
-                target="_blank"
-                rel="noreferrer"
-              >
-                SOURCE <span className="caret">&rsaquo;</span>
-              </a>
-            </div>
-          </div>
+      <div className="rail">
+        <div className="marker-row">
+          <span className="marker label" id="problem">
+            <span aria-hidden="true">[x]</span> The problem
+          </span>
+        </div>
 
-          {/* The signature artifact: the document that IS the collateral. */}
-          <article className="bol">
-            <header className="bol-head">
-              <span className="bol-title">BILL OF LADING</span>
-              <span className="bol-no">{LOAD.bolNumber}</span>
-            </header>
-            <dl>
-              <div className="bol-row">
-                <dt>SHIPPER</dt>
-                <dd>{LOAD.shipper}</dd>
-              </div>
-              <div className="bol-row">
-                <dt>LANE</dt>
-                <dd>{LOAD.lane}</dd>
-              </div>
-              <div className="bol-row">
-                <dt>COMMODITY</dt>
-                <dd>{LOAD.commodity}</dd>
-              </div>
-              <div className="bol-row">
-                <dt>DELIVERED</dt>
-                <dd>{LOAD.delivered}</dd>
-              </div>
-              <div className="bol-row">
-                <dt>TERMS</dt>
-                <dd>{LOAD.terms}</dd>
-              </div>
-              <div className="bol-row">
-                <dt>DOC HASH</dt>
-                <dd>{LOAD.docHash}</dd>
-              </div>
-            </dl>
-            <footer className="bol-foot">
-              <span>ASSET #{LOAD.assetId.toString()}</span>
-              <span>
-                {addresses.assetRegistry ? (
-                  <a href={explorerAddress(addresses.assetRegistry)} target="_blank" rel="noreferrer">
-                    REGISTRY {shortAddress(addresses.assetRegistry)}
-                  </a>
-                ) : (
-                  "REGISTRY PENDING DEPLOYMENT"
-                )}
-              </span>
-            </footer>
-          </article>
+        <section className="section pad center">
+          <h2 className="display">Freight is credit-starved by construction.</h2>
         </section>
 
-        <section className="auction">
-          <div className="section-head">
-            <h2>Three underwriters, three numbers</h2>
-            <p>{live ? "LIVE · POLLED FROM CHAIN" : "RECORDED TERMS · AWAITING DEPLOYMENT"}</p>
+        <div className="split">
+          <div>
+            <pre className="plate" aria-label="Timeline of a freight invoice">
+              {TIMELINE}
+            </pre>
           </div>
+          <div className="grid g2" style={{border: 0}}>
+            {PROBLEM.map((c) => (
+              <article className="cell" key={c.n}>
+                <div className="cell-head">
+                  <span className="label">{c.kicker}</span>
+                  <span className="num">{c.n}</span>
+                </div>
+                <h3>{c.h}</h3>
+                <p>{c.p}</p>
+              </article>
+            ))}
+          </div>
+        </div>
 
-          <dl className="figures">
+        <div className="marker-row">
+          <span className="marker label" id="mechanism">
+            <span aria-hidden="true">[/]</span> The mechanism
+          </span>
+        </div>
+
+        <section className="section pad center">
+          <h2 className="display">Escrow first. Settle in one block.</h2>
+          <p className="section-lead">
+            Everything a lending protocol normally outsources to a market, LADING replaces with
+            capital somebody already committed.
+          </p>
+        </section>
+
+        <div className="pad" style={{paddingBottom: "clamp(2rem,5vh,3.5rem)"}}>
+          <pre className="plate" aria-label="Settlement path diagram">
+            {SETTLE}
+          </pre>
+        </div>
+
+        <div className="grid g3">
+          {PILLARS.map((c) => (
+            <article className="cell" key={c.kicker}>
+              <div className="cell-head">
+                <span className="label">{c.kicker}</span>
+              </div>
+              <h3>{c.h}</h3>
+              <p>{c.p}</p>
+            </article>
+          ))}
+        </div>
+
+        <div className="marker-row">
+          <span className="marker label" id="book">
+            <span aria-hidden="true">[&gt;]</span>{" "}
+            {live ? "Live book" : "Book / awaiting deployment"}
+          </span>
+        </div>
+
+        <section className="section pad center">
+          <h2 className="display">Three agents. Three numbers.</h2>
+          <p className="section-lead">
+            {LOAD.bol} &mdash; {LOAD.shipper}, {LOAD.lane}, {LOAD.commodity}, {LOAD.terms}. Each
+            agent graded this load independently and escrowed its own capital behind its own
+            number. The aggressive book holds the slot.
+          </p>
+        </section>
+
+        <div className="pad" style={{paddingBottom: "clamp(2rem,5vh,3.5rem)"}}>
+          <div className="stats">
             {figures.map((f) => (
-              <div className="figure" key={f.label}>
-                <dt>{f.label}</dt>
-                <dd>
-                  {f.value}
-                  <small>{f.unit}</small>
-                </dd>
-              </div>
-            ))}
-          </dl>
-
-          <div className="bidders">
-            {AGENTS.map((a) => (
-              <div className={a.lead ? "bidder lead" : "bidder"} key={a.name}>
-                <span className="bidder-name">
-                  <i className="tick" aria-hidden="true" />
-                  <b>{a.name}</b>
-                </span>
-                <span className="bidder-price">{a.floor}</span>
-                <p className="bidder-why">{a.why}</p>
+              <div key={f.k}>
+                <span className="label">{f.k}</span>
+                <div className="stat-figure">{f.v}</div>
+                <div className="stat-note">{f.n}</div>
               </div>
             ))}
           </div>
 
-          <div className="actions">
+          <div className="book">
+            {BOOK.map((b) => (
+              <div className={b.lead ? "book-row lead" : "book-row"} key={b.name}>
+                <span className="book-name">
+                  <span className="caret" aria-hidden="true">
+                    {b.lead ? ">>" : "--"}
+                  </span>
+                  {b.name}
+                </span>
+                <span className="book-grade">{b.grade}</span>
+                <span className="book-price">{b.price}</span>
+                <span className="book-why">{b.why}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="hero-actions">
+            <Wallet />
             <button
-              className="act"
+              className="btn onDark"
               disabled={!canAct || busy !== null}
               onClick={() =>
                 run("borrow", () =>
@@ -235,12 +449,11 @@ export default function Page() {
                 )
               }
             >
-              {busy === "borrow" ? "DRAWING" : "DRAW AGAINST THIS LOAD"}
-              <span className="caret">&rsaquo;</span>
+              {busy === "borrow" ? "Drawing" : "Draw against this load"}{" "}
+              <span aria-hidden="true">&gt;</span>
             </button>
-
             <button
-              className="act quiet"
+              className="btn onDark"
               disabled={!canAct || busy !== null || !debt}
               onClick={() =>
                 run("repay", () =>
@@ -253,81 +466,131 @@ export default function Page() {
                 )
               }
             >
-              {busy === "repay" ? "REPAYING" : "REPAY"}
-              <span className="caret">&rsaquo;</span>
+              {busy === "repay" ? "Repaying" : "Repay"}
             </button>
           </div>
 
-          {!live && (
-            <p className="notice">
-              <b>Contracts are not yet deployed to BOT Chain mainnet.</b> Every figure above is
-              read from the recorded terms of this load. Set the four{" "}
-              <code>NEXT_PUBLIC_*</code> addresses and the same screen reads them from chain
-              state instead &mdash; the controls go live, nothing else changes.
-            </p>
-          )}
-
           {live && !isConnected && (
-            <p className="notice">
-              <b>Connect a wallet to draw against this load.</b> Reads are live; writes need a
-              signer on chain 677.
+            <p className="callout">
+              <b>Reads are live from chain {IS_TESTNET ? "968" : "677"}.</b> Connect a wallet to
+              draw against this load. Every figure above is polled from currentFloor and
+              availableToBorrow, not stored in this page.
             </p>
           )}
+          {!live && (
+            <p className="callout">
+              <b>Contract addresses are not configured in this build.</b> The page renders from
+              the recorded terms of the load. Setting the four addresses turns the controls
+              live; nothing else changes.
+            </p>
+          )}
+        </div>
+
+        <div className="marker-row">
+          <span className="marker label">
+            <span aria-hidden="true">[::]</span> Agent underwriters
+          </span>
+        </div>
+
+        <section className="section pad center">
+          <h2 className="display">The model grades. The code prices.</h2>
+          <p className="section-lead">
+            A model that emits a number directly cannot be replayed, unit-tested, or explained
+            to the carrier it just marked down. So it does not emit one. It grades the credit
+            and writes a rationale; auditable arithmetic turns that grade into a floor.
+          </p>
         </section>
 
-        <section className="auction">
-          <div className="section-head">
-            <h2>Why this is lendable when a bank says no</h2>
-            <p>NO ORACLE &middot; NO AUCTION &middot; NO SECONDARY MARKET</p>
-          </div>
-          <div className="bidders">
-            <div className="bidder">
-              <span className="bidder-name">
-                <i className="tick" aria-hidden="true" />
-                <b>ESCROW FIRST</b>
-              </span>
-              <span className="bidder-price">100%</span>
-              <p className="bidder-why">
-                The purchase price is funded before origination, not discovered at auction. The
-                loss floor exists before the loan does.
-              </p>
+        <div className="pad" style={{paddingBottom: "clamp(2rem,5vh,3.5rem)"}}>
+          <div className="term">
+            <div className="term-bar">
+              <span>lading://agents &middot; chain 968</span>
+              <span className="term-dot" aria-hidden="true" />
             </div>
-            <div className="bidder">
-              <span className="bidder-name">
-                <i className="tick" aria-hidden="true" />
-                <b>CONTESTABLE</b>
-              </span>
-              <span className="bidder-price">ALWAYS</span>
-              <p className="bidder-why">
-                Any underwriter may displace the incumbent with a higher floor or a lower
-                premium. Competition to buy is what prices an asset with no orderbook.
-              </p>
-            </div>
-            <div className="bidder">
-              <span className="bidder-name">
-                <i className="tick" aria-hidden="true" />
-                <b>DECAY</b>
-              </span>
-              <span className="bidder-price">PER BLOCK</span>
-              <p className="bidder-why">
-                An uncontested floor falls every block until headroom vanishes and the position
-                becomes callable. Risk parameters update without a vote.
-              </p>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <footer className="footer">
-        <div className="shell">
-          <div className="footer-grid">
-            <span>LADING &middot; FREIGHT RECEIVABLE CREDIT</span>
-            <span>BOT CHAIN BUILDER CHALLENGE #2 &middot; RWA</span>
-            <span>{address ? shortAddress(address) : "NOT CONNECTED"}</span>
+            <pre className="term-body">{TERMINAL}</pre>
           </div>
         </div>
-        <p className="footer-word">LADING</p>
-      </footer>
+
+        <div className="marker-row">
+          <span className="marker label">
+            <span aria-hidden="true">[+]</span> Capabilities
+          </span>
+        </div>
+
+        <section className="section pad center">
+          <h2 className="display">What the contracts actually do.</h2>
+        </section>
+
+        <div className="grid g3">
+          {CAPABILITIES.map((c) => (
+            <article className="cell" key={c.n}>
+              <div className="cell-head">
+                <span className="label">[ {c.n} ]</span>
+              </div>
+              <h3>{c.h}</h3>
+              <p>{c.p}</p>
+            </article>
+          ))}
+        </div>
+
+        <div className="pad" style={{paddingBlock: "clamp(2rem,5vh,3.5rem)"}}>
+          <div className="stats">
+            <div>
+              <span className="label">SETTLEMENT</span>
+              <div className="stat-figure">1 block</div>
+              <div className="stat-note">no auction period</div>
+            </div>
+            <div>
+              <span className="label">ORACLES</span>
+              <div className="stat-figure">0</div>
+              <div className="stat-note">no external price feed</div>
+            </div>
+            <div>
+              <span className="label">LOSS FLOOR</span>
+              <div className="stat-figure">100%</div>
+              <div className="stat-note">escrowed before origination</div>
+            </div>
+            <div>
+              <span className="label">TEST SUITE</span>
+              <div className="stat-figure">23</div>
+              <div className="stat-note">unit, integration, invariant</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="marker-row">
+          <span className="marker label" id="faq">
+            <span aria-hidden="true">[?]</span> FAQ
+          </span>
+        </div>
+
+        <section className="section pad">
+          <h2 className="display center" style={{marginBottom: "clamp(2rem,4vw,3rem)"}}>
+            Frequently asked questions.
+          </h2>
+          <Faq />
+        </section>
+
+        <footer className="footer">
+          <div className="footer-grid">
+            <span>LADING &middot; FREIGHT RECEIVABLE CREDIT</span>
+            <span>
+              {addresses.market ? (
+                <a href={explorerAddress(addresses.market)} target="_blank" rel="noreferrer">
+                  MARKET {shortAddress(addresses.market)}
+                </a>
+              ) : (
+                "MARKET PENDING"
+              )}
+            </span>
+            <a href="https://github.com/Venkat5599/assay" target="_blank" rel="noreferrer">
+              SOURCE
+            </a>
+            <span>{address ? shortAddress(address) : "NOT CONNECTED"}</span>
+          </div>
+          <p className="footer-word">LADING</p>
+        </footer>
+      </div>
     </>
   );
 }

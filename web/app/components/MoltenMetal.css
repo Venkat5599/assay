@@ -1,0 +1,8 @@
+.molten-metal-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* Decorative only: never intercept a click meant for the hero controls. */
+  pointer-events: none;
+}
