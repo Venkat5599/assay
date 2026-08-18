@@ -1,83 +1,86 @@
-# PLINTH — System Architecture
+# LADING — System Architecture
 
-**Version** 1.0 · **Target** BOT Chain Mainnet (chain 677, EVM)
+**Version** 2.0 · **Target** BOT Chain Mainnet (chain 677, EVM)
+**Constraint** everything below ships by 2026-08-22.
+
+---
+
+## 0. The one architectural decision
+
+**There is no backend.**
+
+`FirmBidMarket` already exposes `slots()`, `currentFloor()`, and `maxBorrow()` as view functions. That is the read API. The frontend polls the chain directly through viem.
+
+This deletes the indexer, the database, the API server, the cache, the queue, and the keeper fleet from the critical path. On a sub-second-finality chain the auction feed still feels live. Every hour not spent on infrastructure is an hour spent on the loop a judge actually clicks through.
+
+The v1.0 architecture specified Ponder, Postgres, Drizzle, Hono, Redis, BullMQ, UUPS proxies, a 48h timelock, Medusa, Tenderly, Sentry, PostHog, and OpenTelemetry. All of it is correct for a production system and none of it is deliverable in three days. It is cut, not deferred to a sprint that does not exist.
 
 ---
 
 ## 1. Stack
 
-Chosen for what serious on-chain teams actually run in production — not for novelty.
-
-### 1.1 Protocol layer
+### 1.1 Protocol
 
 | Concern | Choice | Rationale |
 |---|---|---|
-| Language | **Solidity 0.8.28** | Native EVM; transient storage available for reentrancy guards |
-| Toolchain | **Foundry** (forge / anvil / cast / chisel) | Fastest test loop; native fuzzing and invariant testing in Solidity |
-| Libraries | **OpenZeppelin 5.x** + **Solady** | OZ for audited standards; Solady for gas-critical math and ERC-721 |
-| Upgradeability | **UUPS proxy + 48h Timelock** | Upgradeable without proxy-admin footguns; timelock removes unilateral upgrade risk |
-| Fixed point | **RAY (1e27)**, PRBMath for exponentials | Matches Aave/Maker convention; avoids precision loss in per-block accrual |
-| Static analysis | **Slither**, **Aderyn** | CI-gated, zero tolerance on high severity |
-| Fuzz / invariant | **forge invariant**, **Medusa** | Stateful fuzzing over auction and escrow accounting |
-| Simulation & alerts | **Tenderly** | Tx simulation in CI; production alerting on settlement events |
+| Language | **Solidity 0.8.28** | Transient storage available for reentrancy guards |
+| Toolchain | **Foundry** | Fastest loop; native fuzzing and invariant testing in Solidity |
+| Libraries | **OpenZeppelin 5.x** + **Solady** | OZ for audited standards; Solady for gas-critical ERC-721 |
+| Fixed point | **RAY (1e27)** via `RayMath` | Aave/Maker convention; no precision loss in per-block accrual |
+| Upgradeability | **None.** Immutable deploys | A proxy you cannot audit in three days is a liability, not a feature |
+| Testing | `forge test` — unit + stateful invariant | Already green: 7 unit, 7 invariant |
 
-### 1.2 Application layer
-
-| Concern | Choice | Rationale |
-|---|---|---|
-| Runtime | **Bun** + TypeScript (strict) | One toolchain across API, indexer, workers |
-| Indexer | **Ponder** | Typed, Postgres-backed, reorg-safe, hot reload. Better fit than a subgraph for a Postgres-centric backend |
-| API | **Hono** + OpenAPI + Zod | Minimal, edge-portable, schema-first contracts |
-| Database | **Postgres (Neon)** + **Drizzle ORM** | Branchable DBs per PR; typed migrations |
-| Cache / queue | **Redis (Upstash)** + **BullMQ** | Keeper jobs, decay materialisation, notification fanout |
-| Chain client | **viem 2.x** | Type-safe, tree-shakeable, current standard |
-
-### 1.3 Interface layer
+### 1.2 Agents
 
 | Concern | Choice |
 |---|---|
-| Framework | **Next.js 15** (App Router, RSC) + **React 19** |
-| Wallet | **wagmi 2.x** + **viem** + **ConnectKit** |
-| Server state | **TanStack Query 5** |
-| Styling | **Tailwind 4** + **shadcn/ui** (art-directed, not stock) |
+| Runtime | **Bun** + TypeScript (strict) |
+| Chain client | **viem 2.x** |
+| Judgment | LLM call → risk grade + rationale string |
+| Pricing | Deterministic TypeScript: grade → `F`, premium |
+| Keys | One EOA per agent, funded with minimal capital |
+
+### 1.3 Interface
+
+| Concern | Choice |
+|---|---|
+| Framework | **Next.js 15** (App Router) + React 19 |
+| Wallet | **wagmi 2.x** + **viem** + ConnectKit |
+| Reads | `useReadContract` polling on a short interval |
+| Styling | **Tailwind 4** + shadcn/ui, art-directed |
 | Motion | **Motion** (`motion/react`) |
-| Realtime | SSE from the API for live auction state |
 
 ### 1.4 Platform
 
-CI **GitHub Actions** · Frontend **Vercel** · Services **Railway** · DB **Neon** · Cache **Upstash** · Errors **Sentry** · Product analytics **PostHog** · Tracing **OpenTelemetry → Grafana Cloud**
+Frontend **Vercel** · Agents **any always-on host** (Railway/Fly/a VPS) · CI **GitHub Actions** running `forge test`.
 
 ---
 
 ## 2. Topology
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│  Next.js 15 (Vercel)                                       │
-│  borrower dashboard · underwriter console · auction feed   │
-└───────────────┬──────────────────────────┬─────────────────┘
-                │ wagmi/viem (writes)      │ REST + SSE (reads)
-                ▼                          ▼
-┌──────────────────────────┐   ┌────────────────────────────┐
-│  BOT Chain (677)         │   │  Hono API (Railway)        │
-│  ├ FirmBidMarket         │   │  ├ auction & loan queries  │
-│  ├ LoanVault             │   │  ├ analytics               │
-│  ├ SettlementEngine      │   │  └ SSE live feed           │
-│  ├ AssetRegistry (721)   │   └──────────┬─────────────────┘
-│  ├ ComplianceModule      │              │
-│  └ Treasury              │              ▼
-└──────────┬───────────────┘   ┌────────────────────────────┐
-           │ logs              │  Postgres (Neon)           │
-           ▼                   └──────────▲─────────────────┘
-┌──────────────────────────┐              │
-│  Ponder indexer          │──────────────┘
-└──────────────────────────┘
-┌──────────────────────────┐
-│  Keeper workers (BullMQ) │  default triggers · decay ticks · alerts
-└──────────────────────────┘
+┌──────────────────────────────────────────────┐
+│  Next.js (Vercel)                            │
+│  carrier dashboard · live auction feed       │
+└───────────────┬──────────────────────────────┘
+                │ wagmi/viem — reads AND writes
+                ▼
+┌──────────────────────────────────────────────┐
+│  BOT Chain (677)                             │
+│  ├ AssetRegistry        ERC-721 invoice      │
+│  ├ FirmBidMarket        bids · premium ·     │
+│  │                      decay · settlement   │
+│  ├ LoanVault            borrow · repay       │
+│  └ AllowlistCompliance  gate                 │
+└───────────────▲──────────────────────────────┘
+                │ bid · contest · withdraw
+┌───────────────┴──────────────────────────────┐
+│  Agent underwriters (Bun)                    │
+│  conservative · aggressive · sector-focused  │
+└──────────────────────────────────────────────┘
 ```
 
-**Reads never touch the chain.** The indexer is the read path; the chain is the write path and the source of truth. That separation is what keeps the auction feed fast enough to feel live.
+Three arrows. That is the whole system.
 
 ---
 
@@ -85,184 +88,94 @@ CI **GitHub Actions** · Frontend **Vercel** · Services **Railway** · DB **Neo
 
 ### 3.1 Inventory
 
-| Contract | Responsibility |
+| Contract | State | Responsibility |
+|---|---|---|
+| `AssetRegistry` | ✅ 90 lines | ERC-721 record: shipper, face value, due date, document hash |
+| `FirmBidMarket` | ✅ 436 lines | Slots, escrowed bids, contest, premium accrual, floor decay, atomic settlement |
+| `AllowlistCompliance` | ✅ 55 lines | `ICompliance` allowlist gate |
+| `RayMath` | ✅ 60 lines | RAY fixed-point |
+| `LoanVault` | ⬜ **the only contract left** | `outstanding` · `isDefaulted` · `absorbSettlement` + borrow/repay |
+
+### 3.2 `FirmBidMarket` surface (built)
+
+```
+openSlot(assetId, premiumReserve)     bid(assetId, floor, premiumRate)
+fundPremium(assetId, amount)          withdrawBid(assetId)
+claimPremium(assetId)                 closeSlot(assetId)
+settleDefault(assetId)                tick(assetId)
+currentFloor(assetId) view            maxBorrow(assetId) view
+slots(assetId) view
+```
+
+### 3.3 `LoanVault` — what remains
+
+Implements `ILoanVault`, which the market already calls:
+
+```solidity
+function outstanding(uint256 assetId) external view returns (uint256);
+function isDefaulted(uint256 assetId) external view returns (bool);
+function absorbSettlement(uint256 assetId, uint256 amount) external;
+```
+
+Plus the borrower path: `borrow(assetId, amount)` capped at `market.maxBorrow(assetId)`, `repay(assetId, amount)`, linear interest accrual, and a default flag on maturity breach. Standard vault mechanics — roughly 150 lines. No novel logic; the novelty is entirely in the market.
+
+**Invariants to add:** `outstanding ≤ maxBorrow` at origination · repayment monotonically reduces debt · `absorbSettlement` callable only by the market.
+
+---
+
+## 4. Agent design
+
+Three agents, deliberately divergent. Identical prices from three keys reads as one script and destroys the innovation claim.
+
+| Agent | Mandate |
 |---|---|
-| `AssetRegistry` | ERC-721 record of a receivable: debtor, face value, due date, document hash |
-| `FirmBidMarket` | Bid slots, escrow, `contest()`, premium accrual, floor decay |
-| `LoanVault` | Origination at derived LTV, repayment, default detection |
-| `SettlementEngine` | Atomic escrow↔asset swap on default |
-| `ComplianceModule` | `ICompliance` implementation; allowlist in v1 |
-| `Treasury` | Protocol fee accrual and withdrawal |
+| `conservative` | Bids low, wide haircut, only well-known shippers |
+| `aggressive` | Bids near face value, thin premium, accepts unknown debtors |
+| `sector` | Only one lane or shipper type; ignores everything else |
 
-### 3.2 Core state
+**Loop:** poll for open slots → read invoice from `AssetRegistry` → LLM emits risk grade + rationale → formula maps grade to `F` and premium → compare against the live `currentFloor` → bid, contest, or abstain → hold, and withdraw when decay makes the position unprofitable.
 
-```solidity
-struct Slot {
-    address underwriter;
-    uint256 floor;         // F — firm bid price
-    uint256 escrow;        // pre-funded; invariant: escrow >= floor
-    uint256 premiumRate;   // per-block, RAY
-    uint256 accrued;       // premium owed to underwriter
-    uint64  lastTick;      // block of last accrual
-    uint64  decayRate;     // per-block floor decay, RAY
-}
-```
-
-### 3.3 Contest — the central mechanism
-
-```solidity
-function contest(uint256 assetId, uint256 newFloor, uint256 newRate)
-    external nonReentrant
-{
-    require(compliance.canUnderwrite(msg.sender), "not permitted");
-    Slot storage s = slots[assetId];
-    _tick(assetId);
-
-    // strictly better on at least one axis, no worse on either
-    require(newFloor >= s.floor && newRate <= s.premiumRate, "not better");
-    require(newFloor > s.floor || newRate < s.premiumRate, "no improvement");
-    require(newFloor >= vault.outstanding(assetId), "below outstanding debt");
-
-    escrowToken.safeTransferFrom(msg.sender, address(this), newFloor);
-
-    address prev   = s.underwriter;
-    uint256 refund = s.escrow;
-    uint256 owed   = s.accrued;
-
-    s.underwriter = msg.sender;
-    s.floor       = newFloor;
-    s.escrow      = newFloor;
-    s.premiumRate = newRate;
-    s.accrued     = 0;
-    s.lastTick    = uint64(block.number);
-
-    if (prev != address(0)) {
-        escrowToken.safeTransfer(prev, refund + owed);   // CEI: state first
-    }
-    emit SlotContested(assetId, prev, msg.sender, newFloor, newRate);
-}
-```
-
-### 3.4 Accrual and decay — lazy, O(1)
-
-```solidity
-function _tick(uint256 assetId) internal {
-    Slot storage s = slots[assetId];
-    uint256 n = block.number - s.lastTick;
-    if (n == 0) return;
-
-    s.accrued += (s.floor * s.premiumRate * n) / RAY;
-
-    if (s.decayRate != 0) {
-        // compounding decay; rpow avoids linear-approximation drift
-        s.floor = (s.floor * (RAY - s.decayRate).rpow(n, RAY)) / RAY;
-    }
-    s.lastTick = uint64(block.number);
-}
-```
-
-No loops over participants. Cost is constant regardless of slot count or elapsed blocks.
-
-### 3.5 Settlement
-
-```solidity
-function settleDefault(uint256 assetId) external nonReentrant {
-    require(vault.isDefaulted(assetId), "not defaulted");
-    Slot storage s = slots[assetId];
-    _tick(assetId);
-
-    uint256 escrow = s.escrow;
-    address uw     = s.underwriter;
-    delete slots[assetId];                              // effects
-
-    escrowToken.safeTransfer(address(vault), escrow);   // interactions
-    vault.absorb(assetId, escrow);
-    assetRegistry.transferFrom(address(this), uw, assetId);
-
-    emit Settled(assetId, uw, escrow);
-}
-```
-
-One block. No auction, no oracle, no external market.
+**Why the split matters.** An LLM emitting a raw price is fragile and a judge will poke at it. An LLM emitting a *risk grade with a written rationale*, converted to a price by auditable arithmetic, is defensible. Surface the rationale next to each bid in the UI and hash it on-chain with the bid.
 
 ---
 
-## 4. Invariants
+## 5. Frontend
 
-Enforced by `forge invariant` and Medusa. These are the safety argument.
+Single carrier-first flow. Four screens, one loop.
 
-| ID | Invariant |
+| Screen | Contract calls |
 |---|---|
-| INV-1 | `slot.escrow >= slot.floor` for every active slot |
-| INV-2 | `escrowToken.balanceOf(market) >= Σ(escrow + accrued)` |
-| INV-3 | `contest()` never decreases `floor` and never increases `premiumRate` |
-| INV-4 | `vault.outstanding(assetId) <= slot.floor × (1 − haircut)` at all times |
-| INV-5 | A displaced underwriter is always refunded `escrow + accrued` in full |
-| INV-6 | Settlement is atomic — escrow and asset both move, or neither does |
-| INV-7 | `_tick` is idempotent within a block |
+| Submit invoice | `AssetRegistry.register` → `FirmBidMarket.openSlot` |
+| Watch auction | poll `slots`, `currentFloor`, `maxBorrow` |
+| Take loan | `LoanVault.borrow` |
+| Repay | `LoanVault.repay` |
 
-INV-4 matters most: it is what makes floor decay a real deleveraging mechanism rather than a cosmetic number.
+The auction screen is the product. It shows the floor rising as agents contest, the premium moving, decay ticking down when nobody bids, and each agent's rationale beside its number. That screen is the 15% User Experience score and most of the 20% Innovation score.
 
 ---
 
-## 5. Security
+## 6. Build order
 
-**Reentrancy** — CEI ordering throughout; `nonReentrant` on all external state mutators; transient-storage guard (EIP-1153) where supported.
+Each step leaves the project submittable.
 
-**Oracle risk** — none. The protocol reads no external price feed by design. `F` originates from escrowed capital.
+1. **`LoanVault` + tests.** Unblocks F-07 and F-08.
+2. **Deploy to mainnet 677, verify on scan.botchain.ai.** Eligibility gate — do this before the UI, not after.
+3. **Carrier flow.** Submit → watch → borrow → repay, wallet-connected.
+4. **Agents.** Three of them, running live against mainnet.
+5. **Demo video.** Record the default settlement: escrow to lender, invoice to underwriter, atomic, one block, no oracle.
 
-**Precision** — RAY fixed point; `rpow` for compounding; rounding always against the actor requesting value.
-
-**Access control** — `AccessControlDefaultAdminRules`; admin is a 48h Timelock behind a multisig.
-
-**Upgrades** — UUPS, timelocked, storage-gap reservations on every upgradeable contract.
-
-**Front-running** — contest requires strictly-better terms, so a "snipe" is only ever a better deal for the borrower. Sub-second blocks compress the window such that marginal sniping does not clear gas cost. **Benchmark and publish the measured threshold.**
-
-**Griefing** — minimum improvement delta and minimum slot dwell time prevent contest spam.
-
-CI gates: `forge test` · `forge coverage ≥ 90%` on core · Slither high/medium = 0 · Aderyn clean · gas snapshot diff on every PR.
+Cut from the bottom if the clock runs out.
 
 ---
 
-## 6. Data model (indexer → Postgres)
+## 7. Deployment
 
 ```
-assets        (id, debtor, face_value, due_date, doc_hash, owner, status)
-slots         (asset_id, underwriter, floor, escrow, premium_rate, decay_rate, block)
-slot_history  (asset_id, block, floor, premium_rate, underwriter, event)
-loans         (asset_id, lender, principal, ltv, originated_at, status)
-settlements   (asset_id, underwriter, escrow_paid, block, tx_hash)
+contracts/script/Deploy.s.sol   forge script --broadcast --verify
 ```
 
-`slot_history` is the long-term moat: a time series of capital-backed valuations for assets that have no market price. Nothing else can produce this dataset, because it exists only as a byproduct of real bidding.
+Order: `AllowlistCompliance` → `AssetRegistry` → `FirmBidMarket` → `LoanVault` → wire `setCompliance` / `setLoanVault` → allowlist the demo accounts and the three agent EOAs.
 
----
+Config already in `foundry.toml`: `rpc_endpoints.botchain`, `etherscan.botchain` at chain 677. Needs `BOTCHAIN_RPC_URL`, `BOTSCAN_API_KEY`, `BOTSCAN_VERIFIER_URL`.
 
-## 7. Delivery plan
-
-### Ships by 2026-08-22
-
-| Day | Deliverable |
-|---|---|
-| **D1** | `AssetRegistry`, `FirmBidMarket` (escrow, `contest`, `_tick`), INV-1/2/3/5/7 |
-| **D2** | `LoanVault` (derived LTV, repay, default), `ComplianceModule`, INV-4 |
-| **D3** | `SettlementEngine` + INV-6. Slither/Aderyn clean. **Deploy to mainnet, verify on scan** |
-| **D4** | Ponder indexer, Hono API, Next.js borrower dashboard + auction feed |
-| **D5** | Underwriter console, fraud-rejection demo, gas benchmarks, README, video |
-
-**Cut order under pressure:** underwriter console → floor decay → indexer (read direct from chain).
-
-**Never cut:** escrow invariants, atomic settlement, the borrower loop.
-
-### Deferred to production
-
-Tranched syndicates · slot secondary market · underwriter reputation · jurisdictional compliance modules · institutional API · external audit · cross-chain collateral
-
----
-
-## 8. Open items — resolve before writing contracts
-
-1. **Verify BOT Chain parameters directly.** Chain ID, RPC, gas token, EVM version (does it support EIP-1153 transient storage?), measured block time and finality. Published docs returned HTTP 403; current figures are unverified.
-2. **Audit Builder Challenge #1 submissions** for overlap under Rule 4. Disqualification risk.
-3. **Confirm a stablecoin** on BOT Chain mainnet for escrow denomination.
+Record every deployed address in `README.md` with its explorer link. That table is 25% of the score.
