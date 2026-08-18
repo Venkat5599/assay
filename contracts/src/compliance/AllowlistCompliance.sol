@@ -48,8 +48,19 @@ contract AllowlistCompliance is ICompliance, Ownable2Step {
         return openAccess || (roles[a] & role) != 0;
     }
 
-    function canRegisterAsset(address a) external view returns (bool) { return _has(a, ROLE_ASSET); }
-    function canUnderwrite(address a) external view returns (bool) { return _has(a, ROLE_UNDERWRITE); }
-    function canBorrow(address a) external view returns (bool) { return _has(a, ROLE_BORROW); }
-    function canLend(address a) external view returns (bool) { return _has(a, ROLE_LEND); }
+    function canRegisterAsset(address a) external view returns (bool) {
+        return _has(a, ROLE_ASSET);
+    }
+
+    function canUnderwrite(address a) external view returns (bool) {
+        return _has(a, ROLE_UNDERWRITE);
+    }
+
+    function canBorrow(address a) external view returns (bool) {
+        return _has(a, ROLE_BORROW);
+    }
+
+    function canLend(address a) external view returns (bool) {
+        return _has(a, ROLE_LEND);
+    }
 }

@@ -6,11 +6,11 @@ pragma solidity 0.8.28;
 ///      lading, assignment notice). PLINTH never asserts the document is
 ///      genuine - the underwriter's escrowed capital is what prices that risk.
 struct Receivable {
-    address debtor;      // obligor on the receivable (informational)
-    uint128 faceValue;   // denominated in the escrow token
-    uint64  dueDate;     // unix seconds
-    uint64  registeredAt;
-    bytes32 docHash;     // keccak256 of the canonical document bundle
+    address debtor; // obligor on the receivable (informational)
+    uint128 faceValue; // denominated in the escrow token
+    uint64 dueDate; // unix seconds
+    uint64 registeredAt;
+    bytes32 docHash; // keccak256 of the canonical document bundle
 }
 
 interface IAssetRegistry {

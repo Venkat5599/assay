@@ -81,9 +81,8 @@ contract FirmBidMarketHandler is CommonBase, StdCheats, StdUtils {
             : curFloor + bound(floorSeed, curFloor / 50 + 1, curFloor / 2 + 1);
 
         uint128 curRate = s.premiumRate;
-        uint128 newRate = curRate == 0
-            ? uint128(bound(rateSeed, 0, 1e18))
-            : uint128(bound(rateSeed, 0, curRate));
+        uint128 newRate =
+            curRate == 0 ? uint128(bound(rateSeed, 0, 1e18)) : uint128(bound(rateSeed, 0, curRate));
 
         address prev = s.underwriter;
         uint256 owedBefore = s.escrow + s.accrued;

@@ -241,10 +241,7 @@ contract FirmBidMarket is ReentrancyGuardTransient, Ownable2Step {
     ///      on either. Because "better" always means better *for the borrower*,
     ///      front-running a contest can only improve the borrower's terms -
     ///      the usual MEV harm is structurally absent here.
-    function bid(uint256 assetId, uint256 newFloor, uint128 newRate)
-        external
-        nonReentrant
-    {
+    function bid(uint256 assetId, uint256 newFloor, uint128 newRate) external nonReentrant {
         if (!compliance.canUnderwrite(msg.sender)) revert NotPermitted(msg.sender);
 
         Slot storage s = _slots[assetId];
@@ -264,8 +261,8 @@ contract FirmBidMarket is ReentrancyGuardTransient, Ownable2Step {
                 revert BidNotBetter(newFloor, newRate, curFloor, curRate);
             }
             // strictly better on at least one, by the minimum delta
-            bool floorBetter = newFloor >= curFloor + (curFloor * minImprovementBps / BPS)
-                && newFloor > curFloor;
+            bool floorBetter =
+                newFloor >= curFloor + (curFloor * minImprovementBps / BPS) && newFloor > curFloor;
             bool rateBetter = curRate > 0
                 && newRate <= curRate - (curRate * minImprovementBps / BPS) && newRate < curRate;
             if (!floorBetter && !rateBetter) {

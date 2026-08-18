@@ -39,10 +39,16 @@ contract LoanVaultTest is Test {
 
         registry = new AssetRegistry(address(this), ICompliance(address(compliance)));
         market = new FirmBidMarket(
-            address(this), token, IAssetRegistry(address(registry)), ICompliance(address(compliance))
+            address(this),
+            token,
+            IAssetRegistry(address(registry)),
+            ICompliance(address(compliance))
         );
         vault = new LoanVault(
-            address(this), token, IAssetRegistry(address(registry)), ICompliance(address(compliance))
+            address(this),
+            token,
+            IAssetRegistry(address(registry)),
+            ICompliance(address(compliance))
         );
 
         market.setLoanVault(ILoanVault(address(vault)));
@@ -164,9 +170,7 @@ contract LoanVaultTest is Test {
         uint256 room = vault.availableToBorrow(assetId);
 
         vm.prank(carrier);
-        vm.expectRevert(
-            abi.encodeWithSelector(LoanVault.ExceedsHeadroom.selector, room + 1, room)
-        );
+        vm.expectRevert(abi.encodeWithSelector(LoanVault.ExceedsHeadroom.selector, room + 1, room));
         vault.borrow(assetId, room + 1);
     }
 
@@ -206,7 +210,9 @@ contract LoanVaultTest is Test {
 
         vm.prank(lender);
         vm.expectRevert(
-            abi.encodeWithSelector(LoanVault.InsufficientLiquidity.selector, want, vault.totalIdle())
+            abi.encodeWithSelector(
+                LoanVault.InsufficientLiquidity.selector, want, vault.totalIdle()
+            )
         );
         vault.withdraw(all);
     }

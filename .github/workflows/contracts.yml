@@ -1,0 +1,52 @@
+name: contracts
+
+on:
+  push:
+    branches: [master, main]
+    paths: ["contracts/**", ".github/workflows/contracts.yml"]
+  pull_request:
+    paths: ["contracts/**", ".github/workflows/contracts.yml"]
+
+concurrency:
+  group: contracts-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: contracts
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Formatting
+        run: forge fmt --check
+
+      - name: Build
+        run: forge build --sizes
+
+      - name: Unit and integration tests
+        run: forge test -vv
+
+      # The CI profile raises fuzz runs 10x and invariant depth 2x. Local runs
+      # stay fast; the expensive search happens here, once, per change.
+      - name: Fuzz and invariant sweep
+        run: forge test --profile ci
+        env:
+          FOUNDRY_PROFILE: ci
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Coverage
+        run: forge coverage --report summary --no-match-coverage "(script|test)"

@@ -29,7 +29,9 @@ contract AssetRegistry is IAssetRegistry, ERC721, Ownable2Step {
     error InvalidReceivable();
     error UnknownAsset(uint256 id);
 
-    event Registered(uint256 indexed id, address indexed owner, bytes32 indexed docHash, uint128 faceValue);
+    event Registered(
+        uint256 indexed id, address indexed owner, bytes32 indexed docHash, uint128 faceValue
+    );
     event ComplianceUpdated(address indexed compliance);
 
     constructor(address initialOwner, ICompliance compliance_)

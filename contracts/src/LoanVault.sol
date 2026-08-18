@@ -114,7 +114,11 @@ contract LoanVault is ILoanVault, ReentrancyGuardTransient, Ownable2Step {
     event Borrowed(uint256 indexed assetId, address indexed borrower, uint256 amount);
     event Repaid(uint256 indexed assetId, address indexed payer, uint256 amount, bool closed);
     event SettlementAbsorbed(
-        uint256 indexed assetId, uint256 proceeds, uint256 debtCleared, uint256 surplus, uint256 loss
+        uint256 indexed assetId,
+        uint256 proceeds,
+        uint256 debtCleared,
+        uint256 surplus,
+        uint256 loss
     );
     event SurplusClaimed(address indexed account, uint256 amount);
     event Accrued(uint256 borrowIndex, uint256 interest);
