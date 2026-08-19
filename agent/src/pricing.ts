@@ -1,4 +1,4 @@
-import type {Assessment, Load, Mandate} from "./types";
+import type {Assessment, Load, Mandate, Quote} from "./types";
 
 /**
  * THE PRICING KERNEL.
@@ -17,11 +17,7 @@ const ADVANCE: Record<Assessment["grade"], number> = {
   REJECT: 0,
 };
 
-export interface Quote {
-  floor: bigint;
-  premiumRate: bigint;
-  abstain: boolean;
-}
+export type {Quote};
 
 export function price(load: Load, mandate: Mandate, assessment: Assessment): Quote {
   if (mandate.refuses.includes(assessment.grade)) {

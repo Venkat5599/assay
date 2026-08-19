@@ -38,5 +38,10 @@ int_types = "long"
 botchain = "${BOTCHAIN_RPC_URL}"
 botchain_testnet = "${BOTCHAIN_TESTNET_RPC_URL}"
 
+# BOT Chain's explorer runs Blockscout, not Etherscan. Blockscout verifies
+# without credentials, so the key here is a placeholder the toolchain insists on
+# rather than a secret - which is why verification was blocked on an API key
+# that was never going to exist.
 [etherscan]
-botchain = { key = "${BOTSCAN_API_KEY}", url = "${BOTSCAN_VERIFIER_URL}", chain = 677 }
+botchain = { key = "blockscout", url = "https://scan.botchain.ai/api/", chain = 677 }
+botchain_testnet = { key = "blockscout", url = "https://scan.bohr.life/api/", chain = 968 }

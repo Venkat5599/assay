@@ -27,3 +27,11 @@ export interface Mandate {
   ceiling: number;
   bias: string;
 }
+
+/** What the pricing kernel emits. Re-exported here so callers of `price` can
+ *  name the type without importing from the module that produces it. */
+export interface Quote {
+  floor: bigint;
+  premiumRate: bigint;
+  abstain: boolean;
+}

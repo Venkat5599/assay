@@ -76,6 +76,13 @@ export const marketAbi = [
   },
   {
     type: "function",
+    name: "withdrawBid",
+    stateMutability: "nonpayable",
+    inputs: [{name: "assetId", type: "uint256"}],
+    outputs: [],
+  },
+  {
+    type: "function",
     name: "minImprovementBps",
     stateMutability: "view",
     inputs: [],
@@ -83,7 +90,27 @@ export const marketAbi = [
   },
 ] as const;
 
+export const vaultAbi = [
+  {
+    type: "function",
+    name: "outstanding",
+    stateMutability: "view",
+    inputs: [{name: "assetId", type: "uint256"}],
+    outputs: [{type: "uint256"}],
+  },
+] as const;
+
 export const registryAbi = [
+  {
+    type: "event",
+    name: "Registered",
+    inputs: [
+      {name: "id", type: "uint256", indexed: true},
+      {name: "owner", type: "address", indexed: true},
+      {name: "docHash", type: "bytes32", indexed: true},
+      {name: "faceValue", type: "uint128", indexed: false},
+    ],
+  },
   {
     type: "function",
     name: "receivableOf",
@@ -141,6 +168,16 @@ export const erc20Abi = [
       {name: "amount", type: "uint256"},
     ],
     outputs: [],
+  },
+  {
+    type: "function",
+    name: "allowance",
+    stateMutability: "view",
+    inputs: [
+      {name: "owner", type: "address"},
+      {name: "spender", type: "address"},
+    ],
+    outputs: [{type: "uint256"}],
   },
   {
     type: "function",
