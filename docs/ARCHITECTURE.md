@@ -28,7 +28,7 @@ The v1.0 architecture specified Ponder, Postgres, Drizzle, Hono, Redis, BullMQ, 
 | Libraries | **OpenZeppelin 5.x** + **Solady** | OZ for audited standards; Solady for gas-critical ERC-721 |
 | Fixed point | **RAY (1e27)** via `RayMath` | Aave/Maker convention; no precision loss in per-block accrual |
 | Upgradeability | **None.** Immutable deploys | A proxy you cannot audit in three days is a liability, not a feature |
-| Testing | `forge test` — unit + stateful invariant | Already green: 7 unit, 7 invariant |
+| Testing | `forge test` — unit + stateful invariant | Green: 35 across market, vault, invariants, ontology |
 
 ### 1.2 Agents
 
@@ -91,10 +91,11 @@ Three arrows. That is the whole system.
 | Contract | State | Responsibility |
 |---|---|---|
 | `AssetRegistry` | ✅ 90 lines | ERC-721 record: shipper, face value, due date, document hash |
-| `FirmBidMarket` | ✅ 436 lines | Slots, escrowed bids, contest, premium accrual, floor decay, atomic settlement |
+| `FirmBidMarket` | ✅ 480 lines | Slots, escrowed bids, contest, premium accrual, floor decay, atomic settlement |
 | `AllowlistCompliance` | ✅ 55 lines | `ICompliance` allowlist gate |
 | `RayMath` | ✅ 60 lines | RAY fixed-point |
-| `LoanVault` | ⬜ **the only contract left** | `outstanding` · `isDefaulted` · `absorbSettlement` + borrow/repay |
+| `LoanVault` | ✅ 374 lines | `outstanding` · `isDefaulted` · `absorbSettlement` + borrow/repay |
+| `CounterpartyRegistry` | ✅ 145 lines | Names the parties a receivable points at. Quarantined from market and vault so no settlement path can depend on a name |
 
 ### 3.2 `FirmBidMarket` surface (built)
 
@@ -107,21 +108,30 @@ currentFloor(assetId) view            maxBorrow(assetId) view
 slots(assetId) view
 ```
 
-### 3.3 `LoanVault` — what remains
+### 3.3 Floor decay
 
-Implements `ILoanVault`, which the market already calls:
+The mechanism that makes risk parameters governance-free, and the one that spent
+most of this project's life as a struct field nothing assigned. `Slot.decayRate`
+was declared, read in `currentFloor` and `_tick`, and never written, so the floor
+never moved and the property did not exist.
 
-```solidity
-function outstanding(uint256 assetId) external view returns (uint256);
-function isDefaulted(uint256 assetId) external view returns (bool);
-function absorbSettlement(uint256 assetId, uint256 amount) external;
-```
+It is a **protocol** parameter, not a bid parameter. Decay is worth money to the
+underwriter, who settles at the decayed floor, and costs the borrower headroom,
+so neither party at the table can be trusted to set it. `bid` snapshots the
+prevailing rate onto the slot, so an owner transaction can never reprice a
+commitment underneath the underwriter who already made it.
 
-Plus the borrower path: `borrow(assetId, amount)` capped at `market.maxBorrow(assetId)`, `repay(assetId, amount)`, linear interest accrual, and a default flag on maturity breach. Standard vault mechanics — roughly 150 lines. No novel logic; the novelty is entirely in the market.
+A contest resets the clock: `bid` writes a fresh floor and a fresh `lastTick`,
+so decay only ever bites an opinion nobody has restated.
 
-**Invariants to add:** `outstanding ≤ maxBorrow` at origination · repayment monotonically reduces debt · `absorbSettlement` callable only by the market.
+| Parameter | Value | Effect on this chain |
+|---|---|---|
+| `decayRatePerBlock` | 2.15e-8 RAY | ~20% erosion over a 90-day receivable at 0.75s blocks |
+| `maxDecayRate` | 1e-6 RAY | ~11%/day ceiling, so no setting erases a floor before anyone reacts |
 
----
+`_tick` clamps decay at the outstanding debt. A decaying floor compresses
+headroom until the position is callable, but can never leave the lender
+under-covered.
 
 ## 4. Agent design
 
