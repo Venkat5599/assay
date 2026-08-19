@@ -2,7 +2,8 @@
 
 import {useMemo, useState} from "react";
 
-import {BorrowRepay, Faucet, LendPanel, OpenSlot, PlaceBid, SubmitLoad} from "../components/Forms";
+import {BorrowRepay, GetUsdt, LendPanel, OpenSlot, PlaceBid, SubmitLoad} from "../components/Forms";
+import {ClaimSurplus, WithdrawPanel} from "../components/Exits";
 import {addresses} from "@/lib/addresses";
 import {explorerAddress, explorerTx} from "@/lib/chain";
 import {usd, shortAddress, bolRef} from "@/lib/format";
@@ -626,7 +627,11 @@ export function Funding({ops}: {ops: Ops}) {
       </div>
       <div className="cols">
         <LendPanel />
-        <Faucet />
+        <WithdrawPanel idle={ops.pool.idle} />
+      </div>
+      <div className="cols">
+        <ClaimSurplus />
+        <GetUsdt />
       </div>
     </>
   );
@@ -878,7 +883,7 @@ export function Origination({ops}: {ops: Ops}) {
   return (
     <div className="cols">
       <SubmitLoad onDone={ops.refresh} />
-      <Faucet />
+      <GetUsdt />
     </div>
   );
 }

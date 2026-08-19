@@ -149,9 +149,79 @@ contract LoanVaultTest is Test {
 
     // -------------------------------------------------------- risk triggers
 
+    /// @notice Decay in isolation, with interest switched off.
+    ///
+    /// @dev THIS TEST EXISTS BECAUSE ITS SIBLING LIED.
+    ///      `test_maturesIntoDefaultWithoutMaturity` below rolls a huge number
+    ///      of blocks and asserts the position became callable. It passed for
+    ///      the entire life of the previous build - while `Slot.decayRate` was
+    ///      never assigned and the floor never moved once. Compounding interest
+    ///      was quietly doing all the work and the assertion could not tell the
+    ///      difference.
+    ///
+    ///      So this one removes the confound: `ratePerBlock = 0` freezes the
+    ///      debt, and the only thing left that can breach coverage is the floor
+    ///      falling on its own. If decay is ever unwired again, this fails and
+    ///      the sibling does not.
+    function test_decayAloneMakesPositionCallable() public {
+        vault.setParameters(0, 3 days); // freeze interest: isolate decay
+
+        _bid(uwA, 90_000e18, 1e15);
+        uint256 floorBefore = market.currentFloor(assetId);
+
+        // Draw 90% of headroom, not all of it. At the cap any decay whatsoever
+        // breaches instantly, which would prove the clamp works but say nothing
+        // about the rate actually being applied.
+        uint256 draw = vault.availableToBorrow(assetId) * 90 / 100;
+        vm.prank(carrier);
+        vault.borrow(assetId, draw);
+
+        assertFalse(vault.isDefaulted(assetId), "healthy at origination");
+
+        // ~45 days of 0.75s blocks, uncontested.
+        vm.roll(block.number + 115_200 * 45);
+
+        assertEq(vault.outstanding(assetId), draw, "debt frozen - decay is the only mover");
+        assertLt(market.currentFloor(assetId), floorBefore, "floor fell with nobody contesting");
+        assertTrue(vault.isDefaulted(assetId), "coverage breached by decay alone");
+        assertLt(block.timestamp, dueDate, "and maturity never arrived");
+    }
+
+    /// @notice A contest restates the bid and resets the erosion.
+    /// @dev Decay must punish a stale opinion, not a live one. If restating the
+    ///      bid did not reset the floor, holding a slot honestly would still
+    ///      bleed the borrower's headroom away.
+    function test_contestResetsDecay() public {
+        vault.setParameters(0, 3 days);
+        _bid(uwA, 90_000e18, 1e15);
+
+        vm.roll(block.number + 115_200 * 45);
+        uint256 decayed = market.currentFloor(assetId);
+        assertLt(decayed, 90_000e18, "floor eroded while uncontested");
+
+        _bid(uwB, 95_000e18, 1e15);
+        assertEq(market.currentFloor(assetId), 95_000e18, "contest restates the floor in full");
+        assertEq(market.slots(assetId).lastTick, uint64(block.number), "erosion clock reset");
+    }
+
+    /// @dev The ceiling is a real guard, and lowering it must drag a live rate
+    ///      down with it rather than leaving one stranded above the bound.
+    function test_decayRateIsBounded() public {
+        uint128 ceiling = market.maxDecayRate();
+        vm.expectRevert(
+            abi.encodeWithSelector(FirmBidMarket.DecayTooHigh.selector, ceiling + 1, ceiling)
+        );
+        market.setDecayRate(ceiling + 1);
+
+        market.setParameters(25, 2_000, 1e15);
+        assertLe(market.decayRatePerBlock(), 1e15, "live rate dragged under the new ceiling");
+    }
+
     /// @dev Governance-free deleveraging: an uncontested floor decays until
     ///      headroom vanishes, and the position becomes callable with no vote.
-    function test_decayMakesPositionCallable() public {
+    ///      Both forces are live here - decay and interest - which is why the
+    ///      isolated test above exists alongside it.
+    function test_maturesIntoDefaultWithoutMaturity() public {
         _bid(uwA, 90_000e18, 1e15);
 
         uint256 room = vault.availableToBorrow(assetId);

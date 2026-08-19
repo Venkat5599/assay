@@ -1,7 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
+import {formatUnits} from "viem";
 import {zodOutputFormat} from "@anthropic-ai/sdk/helpers/zod";
 import {z} from "zod";
 
+import {DECIMALS} from "./chain";
 import type {Assessment, Grade, Load, Mandate} from "./types";
 
 /**
@@ -54,7 +56,7 @@ export async function assess(load: Load, mandate: Mandate): Promise<Assessment> 
 
 /** Deterministic, replayable, and the documented fallback. */
 export function assessWithRubric(load: Load, mandate: Mandate): Assessment {
-  const face = Number(load.faceValue / 10n ** 18n);
+  const face = Number(formatUnits(load.faceValue, DECIMALS));
   const daysOut = Number((load.dueDate - BigInt(Math.floor(Date.now() / 1000))) / DAY);
 
   const reasons: string[] = [];
@@ -92,7 +94,7 @@ export function assessWithRubric(load: Load, mandate: Mandate): Assessment {
 }
 
 async function assessWithModel(load: Load, mandate: Mandate): Promise<Assessment> {
-  const face = Number(load.faceValue / 10n ** 18n);
+  const face = Number(formatUnits(load.faceValue, DECIMALS));
   const daysOut = Number((load.dueDate - BigInt(Math.floor(Date.now() / 1000))) / DAY);
 
   const response = await anthropic().messages.parse({

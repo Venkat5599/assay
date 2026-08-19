@@ -1,8 +1,10 @@
 "use client";
 
 import {useState} from "react";
+import {useAccount} from "wagmi";
 
 import {BorrowRepay, OpenSlot, PlaceBid} from "../components/Forms";
+import {SlotAdmin, UnderwriterExit} from "../components/Exits";
 import {Collapse} from "../components/Reveal";
 import {explorerTx, explorerAddress} from "@/lib/chain";
 import {usd, shortAddress, bolRef} from "@/lib/format";
@@ -197,6 +199,7 @@ export function CreditCase({
   go: (s: string, i?: bigint) => void;
 }) {
   const [tab, setTab] = useState<"book" | "structure" | "coverage" | "settlement" | "document">("structure");
+  const {address} = useAccount();
   const p = ops.positions.find((x) => x.id === id);
 
   if (!p) return <p className="callout">Receivable #{id.toString()} is not registered here.</p>;
@@ -274,6 +277,15 @@ export function CreditCase({
           <section className="stack">
             {!p.open && <OpenSlot assetId={p.id} onDone={ops.refresh} />}
             {p.open && <BorrowRepay assetId={p.id} drawable={p.drawable} debt={p.debt} onDone={ops.refresh} />}
+            {p.open && (
+              <SlotAdmin
+                assetId={p.id}
+                premiumReserve={p.premiumReserve}
+                hasIncumbent={priced}
+                hasDebt={p.debt > 0n}
+                onDone={ops.refresh}
+              />
+            )}
           </section>
         </div>
       )}
@@ -333,6 +345,18 @@ export function CreditCase({
               ))}
             </ul>
             {p.open && <PlaceBid assetId={p.id} currentFloor={priced ? p.floor : undefined} onDone={ops.refresh} />}
+            {p.open && priced && (
+              <UnderwriterExit
+                assetId={p.id}
+                accrued={p.accrued}
+                escrow={p.escrow}
+                hasDebt={p.debt > 0n}
+                isIncumbent={
+                  !!address && p.underwriter.toLowerCase() === address.toLowerCase()
+                }
+                onDone={ops.refresh}
+              />
+            )}
           </section>
         </div>
       )}

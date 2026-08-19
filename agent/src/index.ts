@@ -1,6 +1,6 @@
 import {formatUnits} from "viem";
 
-import {CONTRACTS, erc20Abi, marketAbi, publicClient, registryAbi, walletFor} from "./chain";
+import {CONTRACTS, DECIMALS, erc20Abi, marketAbi, publicClient, registryAbi, walletFor} from "./chain";
 import {MANDATES} from "./mandates";
 import {price} from "./pricing";
 import {assess} from "./underwrite";
@@ -77,7 +77,7 @@ async function openSlots(): Promise<Load[]> {
 }
 
 const fmt = (v: bigint) =>
-  Number(formatUnits(v, 18)).toLocaleString("en-US", {maximumFractionDigits: 0});
+  Number(formatUnits(v, DECIMALS)).toLocaleString("en-US", {maximumFractionDigits: 0});
 
 async function sweep(agents: Agent[]) {
   const loads = await openSlots();

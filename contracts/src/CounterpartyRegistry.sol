@@ -30,7 +30,7 @@ contract CounterpartyRegistry is Ownable2Step {
         Unknown,
         Shipper, // owes the receivable
         Carrier, // performed the freight and holds the claim
-        Broker,  // intermediated the load
+        Broker, // intermediated the load
         Insurer
     }
 

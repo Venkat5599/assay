@@ -132,17 +132,49 @@ contract FirmBidMarketInvariants is Test {
 
     // ------------------------------------------------------------- INV-3
 
-    /// @notice A contest never worsens the borrower's terms.
-    /// @dev Floor may fall only by decay, never by a bid. Rate may rise never.
+    /// @notice A contest never worsens the borrower's terms, and nothing but a
+    ///         contest ever raises the floor.
+    ///
+    /// @dev Stated LOCALLY: every accepted bid is compared against the floor it
+    ///      displaced, as that floor stood at that moment. An all-time high is
+    ///      the wrong bar once decay exists - a standing bid erodes, and a bid
+    ///      beneath the old peak can still be strictly better than what is
+    ///      actually on the table. Testing against the peak would flag the
+    ///      mechanism working correctly as a failure.
+    ///
+    ///      The second leg is the other half of the guarantee: the floor rises
+    ///      only when somebody escrows more capital behind it. Decay is the one
+    ///      force permitted to move it the other way.
+    ///
     ///      This is what makes front-running structurally harmless here: the
     ///      only way to win a slot is to improve the borrower's position.
     function invariant_bidsOnlyImprove() public view {
+        assertEq(handler.ghost_nonImprovingBids(), 0, "INV-3a: a bid worsened live terms");
+
         for (uint256 i; i < assetIds.length; ++i) {
             uint256 id = assetIds[i];
             FirmBidMarket.Slot memory s = market.slots(id);
             if (s.underwriter == address(0)) continue;
-            if (handler.ghost_decayEnabled(id)) continue; // decay handled by INV-4
-            assertGe(s.floor, handler.ghost_maxFloorSeen(id), "INV-3: floor regressed");
+            assertLe(s.floor, handler.ghost_lastBidFloor(id), "INV-3b: floor rose without a bid");
+        }
+    }
+
+    // ------------------------------------------------------------- INV-3c
+
+    /// @notice Decay is actually live on every slot a bid has been struck on.
+    ///
+    /// @dev Guards the exact regression this suite was blind to for the whole
+    ///      of the previous build: `Slot.decayRate` was declared, read in two
+    ///      places, and never assigned, so the floor never moved and the
+    ///      governance-free deleveraging property did not exist. A slot with a
+    ///      standing bid and a zero decay rate is that bug, and it is silent.
+    function invariant_decayIsLive() public view {
+        for (uint256 i; i < assetIds.length; ++i) {
+            uint256 id = assetIds[i];
+            FirmBidMarket.Slot memory s = market.slots(id);
+            if (s.underwriter == address(0)) continue;
+            assertTrue(handler.ghost_decayEnabled(id), "INV-3c: standing bid carries no decay");
+            assertGt(s.decayRate, 0, "INV-3c: slot decay rate is zero");
         }
     }
 

@@ -28,6 +28,22 @@ contract FirmBidMarketHandler is CommonBase, StdCheats, StdUtils {
     ///         floor never falls below this except by decay, which is tracked
     ///         separately via `ghost_decayEnabled`.
     mapping(uint256 => uint256) public ghost_maxFloorSeen;
+    /// @notice Floor written by the MOST RECENT accepted bid on a slot.
+    /// @dev Recorded at bid time, so decay cannot confound it. INV-3 compares
+    ///      it against the live floor to assert nothing but a bid raises one.
+    mapping(uint256 => uint256) public ghost_lastBidFloor;
+
+    /// @notice Count of accepted bids that did NOT improve on the floor they
+    ///         displaced, measured against that floor as it stood at the time.
+    ///
+    /// @dev The reference point matters, and getting it wrong is easy. An
+    ///      all-time-high floor is NOT the bar a contest must clear: decay
+    ///      erodes a standing bid, and once it has eroded, a bid below the old
+    ///      peak can still be strictly better than the commitment actually on
+    ///      the table. Judging against the peak would fail a contest that is
+    ///      working exactly as designed. The real rule - the one `bid()`
+    ///      enforces - is local: beat what stands, when you bid.
+    uint256 public ghost_nonImprovingBids;
     mapping(uint256 => uint256) public ghost_minRateSeen;
     mapping(uint256 => bool) public ghost_decayEnabled;
 
@@ -99,7 +115,12 @@ contract FirmBidMarketHandler is CommonBase, StdCheats, StdUtils {
                 ghost_refundPaid += token.balanceOf(prev) - prevBalBefore;
             }
             FirmBidMarket.Slot memory after_ = market.slots(id);
+            // The bar is the floor as it stood one instant ago, already ticked.
+            if (after_.floor < curFloor) ghost_nonImprovingBids++;
+            if (prev != address(0) && after_.premiumRate > curRate) ghost_nonImprovingBids++;
             if (after_.floor > ghost_maxFloorSeen[id]) ghost_maxFloorSeen[id] = after_.floor;
+            ghost_lastBidFloor[id] = after_.floor;
+            ghost_decayEnabled[id] = after_.decayRate != 0;
             ghost_minRateSeen[id] = after_.premiumRate;
         } catch {}
         vm.stopPrank();
@@ -139,6 +160,8 @@ contract FirmBidMarketHandler is CommonBase, StdCheats, StdUtils {
         try market.withdrawBid(id) {
             // slot vacated: a fresh bid is not bound by the old slot's history
             ghost_maxFloorSeen[id] = 0;
+            ghost_lastBidFloor[id] = 0;
+            ghost_decayEnabled[id] = false;
             ghost_minRateSeen[id] = 0;
         } catch {}
     }

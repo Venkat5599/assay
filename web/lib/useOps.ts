@@ -75,6 +75,8 @@ export interface Position {
   dueDate: bigint;
   floor: bigint;
   escrow: bigint;
+  /** Premium earned by the standing underwriter and not yet claimed. */
+  accrued: bigint;
   premiumReserve: bigint;
   underwriter: Address;
   open: boolean;
@@ -170,7 +172,7 @@ export function useOps(): Ops {
           const r = x.r as {debtor: Address; faceValue: bigint; dueDate: bigint; docHash: `0x${string}`};
           const slot = x.slot as {
             owner: Address; underwriter: Address; open: boolean;
-            floor: bigint; escrow: bigint; premiumReserve: bigint;
+            floor: bigint; escrow: bigint; accrued: bigint; premiumReserve: bigint;
           };
           const debt = x.debt as bigint;
           const cap = x.cap as bigint;
@@ -199,7 +201,8 @@ export function useOps(): Ops {
           return {
             id: x.id, owner: reg.args.owner!, obligor: r.debtor, docHash: r.docHash,
             face: r.faceValue, dueDate: r.dueDate, floor, escrow: slot.escrow,
-            premiumReserve: slot.premiumReserve, underwriter: slot.underwriter,
+            accrued: slot.accrued, premiumReserve: slot.premiumReserve,
+            underwriter: slot.underwriter,
             open: slot.open, debt, cap, drawable: x.drawable as bigint,
             defaulted: x.defaulted as boolean, days, coverage, utilisation, advance, status,
           };
@@ -286,10 +289,13 @@ export function usePortfolio(positions: Position[]) {
     const coverage = debt > 0n ? Number((floors * 10000n) / debt) / 100 : 100;
 
     // Weight maturity by face value, the way a credit desk would.
+    // Scaling the bigints down before converting was a guard against Number
+    // overflow at 18 decimals, and it silently floors every weight to zero at
+    // six. Convert directly instead: a book large enough to lose precision here
+    // would have to exceed 9e15 units of face, which is nine billion dollars.
     const weightedDays =
       face > 0n
-        ? positions.reduce((a, p) => a + p.days * Number(p.face / 10n ** 15n), 0) /
-          Number(face / 10n ** 15n)
+        ? positions.reduce((a, p) => a + p.days * Number(p.face), 0) / Number(face)
         : 0;
 
     const byObligor = new Map<string, bigint>();

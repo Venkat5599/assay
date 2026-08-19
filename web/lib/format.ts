@@ -1,9 +1,30 @@
-import {formatUnits} from "viem";
+import {formatUnits, parseUnits} from "viem";
+
+/**
+ * Precision of the settlement asset.
+ *
+ * LADING settles in bridged USDT on BOT Chain, which carries SIX decimals, not
+ * the eighteen almost every EVM token uses. Assuming eighteen renders every
+ * figure in the product a million times too large, and it is a silent failure -
+ * the numbers still format, they are just wrong.
+ *
+ * So it lives here once, and nothing downstream is allowed to guess. Overridable
+ * per deployment because the settlement asset is a constructor argument, not a
+ * constant of the protocol.
+ */
+export const DECIMALS = Number(process.env.NEXT_PUBLIC_STABLE_DECIMALS ?? 6);
+
+/** Human string -> token units, at the settlement asset's precision. */
+export const toUnits = (v: string): bigint => parseUnits(v || "0", DECIMALS);
+
+/** Token units -> human string. Never do this with Number division. */
+export const fromUnits = (v: bigint | undefined): string =>
+  v === undefined ? "" : formatUnits(v, DECIMALS);
 
 const nf = new Intl.NumberFormat("en-US", {maximumFractionDigits: 0});
 const nf2 = new Intl.NumberFormat("en-US", {maximumFractionDigits: 2});
 
-export function usd(value: bigint | undefined, decimals = 18): string {
+export function usd(value: bigint | undefined, decimals = DECIMALS): string {
   if (value === undefined) return "--";
   const n = Number(formatUnits(value, decimals));
   return n >= 1000 ? nf.format(n) : nf2.format(n);

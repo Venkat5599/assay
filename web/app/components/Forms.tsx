@@ -1,14 +1,14 @@
 "use client";
 
 import {useState, type ReactNode} from "react";
-import {keccak256, maxUint256, parseUnits, stringToHex, type Address} from "viem";
+import {keccak256, maxUint256, stringToHex, type Address} from "viem";
 import {useAccount} from "wagmi";
 
 import {erc20Abi, marketAbi, registryAbi, vaultAbi} from "@/lib/abi";
 import {addresses} from "@/lib/addresses";
-import {explorerTx} from "@/lib/chain";
+import {explorerAddress, explorerTx} from "@/lib/chain";
 import {useToken, useTxRunner} from "@/lib/useChain";
-import {usd} from "@/lib/format";
+import {fromUnits, toUnits, usd} from "@/lib/format";
 
 /**
  * The working surface.
@@ -20,7 +20,7 @@ import {usd} from "@/lib/format";
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
 
-function Result({runner}: {runner: ReturnType<typeof useTxRunner>}) {
+export function Result({runner}: {runner: ReturnType<typeof useTxRunner>}) {
   const s = runner.state;
   if (s.status === "idle") return null;
   if (s.status === "pending") return <p className="formnote">{s.label}&hellip;</p>;
@@ -46,7 +46,7 @@ function Result({runner}: {runner: ReturnType<typeof useTxRunner>}) {
   );
 }
 
-function Field({
+export function Field({
   label,
   hint,
   children,
@@ -64,44 +64,63 @@ function Field({
   );
 }
 
-/** Testnet only: mint settlement tokens so anyone can exercise the flow. */
-export function Faucet() {
-  const {address, isConnected} = useAccount();
-  const runner = useTxRunner();
+/**
+ * Where the settlement asset comes from.
+ *
+ * LADING settles in bridged USDT on BOT Chain - a real asset with real
+ * liquidity, which is the entire point and also means there is no faucet. The
+ * testnet build minted its own token on demand; on mainnet that button would be
+ * a lie, so this panel tells you where the money actually comes from instead.
+ */
+export function GetUsdt() {
+  const {isConnected} = useAccount();
   const {balance} = useToken();
-  const busy = runner.state.status === "pending";
 
   return (
     <div className="form">
       <div className="form-head">
-        <h3>Get test tUSD</h3>
-        <span className="num">{balance !== undefined ? `${usd(balance)} held` : "--"}</span>
+        <h3>Settlement asset</h3>
+        <span className="num">{isConnected ? `${usd(balance)} USDT` : "NOT CONNECTED"}</span>
       </div>
       <p className="form-lead">
-        The settlement token on testnet is openly mintable, so you can run the whole loop
-        without asking anyone for balance.
+        LADING settles in bridged USDT on BOT Chain, not a token this protocol issues. There is
+        no faucet and nothing here is mintable &mdash; the asset is real, so it has to be
+        acquired.
       </p>
-      <button
-        className="btn flare"
-        disabled={!isConnected || busy || !addresses.stable}
-        onClick={() =>
-          runner.run([
-            {
-              label: "Minting 250,000 tUSD",
-              call: () =>
-                runner.writeContractAsync({
-                  abi: erc20Abi,
-                  address: addresses.stable!,
-                  functionName: "mint",
-                  args: [address!, parseUnits("250000", 18)],
-                }),
-            },
-          ])
-        }
-      >
-        {busy ? "Minting" : "Mint 250,000 tUSD"} <span aria-hidden="true">&gt;</span>
-      </button>
-      <Result runner={runner} />
+      <dl className="kv">
+        <div>
+          <dt>Token</dt>
+          <dd className="mono">
+            {addresses.stable ? (
+              <a href={explorerAddress(addresses.stable)} target="_blank" rel="noreferrer">
+                {addresses.stable}
+              </a>
+            ) : (
+              "not configured"
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt>Decimals</dt>
+          <dd>6</dd>
+        </div>
+        <div>
+          <dt>Bridge in</dt>
+          <dd>
+            <a href="https://bridge.botchain.ai/" target="_blank" rel="noreferrer">
+              bridge.botchain.ai
+            </a>
+          </dd>
+        </div>
+        <div>
+          <dt>Swap for</dt>
+          <dd>
+            <a href="https://dex.botchain.ai/" target="_blank" rel="noreferrer">
+              dex.botchain.ai
+            </a>
+          </dd>
+        </div>
+      </dl>
     </div>
   );
 }
@@ -146,8 +165,8 @@ export function SubmitLoad({onDone}: {onDone?: () => void}) {
     docHash !== null;
 
   async function submit() {
-    const faceWei = parseUnits(face, 18);
-    const premiumWei = parseUnits(premium, 18);
+    const faceWei = toUnits(face);
+    const premiumWei = toUnits(premium);
     const dueDate = BigInt(Math.floor(Date.now() / 1000) + Number(days) * 86_400);
 
     const steps: {label: string; call: () => Promise<`0x${string}`>}[] = [
@@ -307,7 +326,7 @@ export function OpenSlot({assetId, onDone}: {assetId: bigint; onDone?: () => voi
   const busy = runner.state.status === "pending";
 
   async function submit() {
-    const premiumWei = parseUnits(premium || "0", 18);
+    const premiumWei = toUnits(premium);
     const steps: {label: string; call: () => Promise<`0x${string}`>}[] = [];
 
     if ((allowance ?? 0n) < premiumWei) {
@@ -389,7 +408,7 @@ export function PlaceBid({
   const [rate, setRate] = useState("1.0");
   const busy = runner.state.status === "pending";
 
-  const floorWei = floor ? parseUnits(floor, 18) : 0n;
+  const floorWei = toUnits(floor);
   const beatsIncumbent = !currentFloor || floorWei > currentFloor;
   const affordable = balance === undefined || floorWei <= balance;
 
@@ -493,8 +512,8 @@ export function BorrowRepay({
   const [pay, setPay] = useState("");
   const busy = runner.state.status === "pending";
 
-  const drawWei = draw ? parseUnits(draw, 18) : 0n;
-  const payWei = pay ? parseUnits(pay, 18) : 0n;
+  const drawWei = toUnits(draw);
+  const payWei = toUnits(pay);
 
   return (
     <div className="form">
@@ -511,7 +530,7 @@ export function BorrowRepay({
               up to {usd(drawable)}{" "}
               <button
                 className="linkish"
-                onClick={() => drawable && setDraw((Number(drawable) / 1e18).toString())}
+                onClick={() => drawable && setDraw(fromUnits(drawable))}
               >
                 max
               </button>
@@ -532,7 +551,7 @@ export function BorrowRepay({
               outstanding {usd(debt)}{" "}
               <button
                 className="linkish"
-                onClick={() => debt && setPay((Number(debt) / 1e18).toString())}
+                onClick={() => debt && setPay(fromUnits(debt))}
               >
                 all
               </button>
@@ -617,7 +636,7 @@ export function LendPanel() {
   const {balance, allowance} = useToken(addresses.vault);
   const [amount, setAmount] = useState("");
   const busy = runner.state.status === "pending";
-  const amountWei = amount ? parseUnits(amount, 18) : 0n;
+  const amountWei = toUnits(amount);
 
   return (
     <div className="form">
@@ -636,7 +655,7 @@ export function LendPanel() {
             balance {usd(balance)}{" "}
             <button
               className="linkish"
-              onClick={() => balance && setAmount((Number(balance) / 1e18).toString())}
+              onClick={() => balance && setAmount(fromUnits(balance))}
             >
               max
             </button>

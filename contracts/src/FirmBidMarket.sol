@@ -79,7 +79,31 @@ contract FirmBidMarket is ReentrancyGuardTransient, Ownable2Step {
 
     /// @notice Upper bound on per-block decay, guarding against a misconfigured
     ///         rate wiping a floor out inside a few blocks.
-    uint128 public maxDecayRate = 1e18; // 1e-9 per block
+    /// @dev 1e-6 per block. On a 0.75s chain that is ~11% a day, which is fast
+    ///      enough to be a real ceiling and slow enough that no setting of it
+    ///      can erase a floor before anybody can react.
+    uint128 public maxDecayRate = 1e21;
+
+    /// @notice Per-block decay applied to a standing floor, RAY.
+    ///
+    /// @dev THE POINT OF THIS NUMBER.
+    ///      A firm bid is a live opinion, and an opinion nobody has restated is
+    ///      worth less than a fresh one. Decay makes a standing bid go stale by
+    ///      itself: the floor falls every block, headroom against the loan
+    ///      compresses, and a position nobody is willing to keep backing becomes
+    ///      callable on its own - no vote, no keeper choosing the moment.
+    ///
+    ///      Decay only ever bites an UNCONTESTED slot. A contest writes a fresh
+    ///      floor and a fresh `lastTick`, so restating the bid resets it.
+    ///
+    ///      It is a protocol parameter rather than a bid parameter on purpose.
+    ///      Decay is worth money to the underwriter (they settle at the decayed
+    ///      floor) and costs the borrower headroom, so neither side can be
+    ///      trusted to choose it. Nobody at the table sets it.
+    ///
+    ///      Default 2.15e-8/block: on a 0.75s chain, ~20% erosion across a
+    ///      90-day receivable if the bid is never restated.
+    uint128 public decayRatePerBlock = 21_500_000_000_000_000_000;
 
     mapping(uint256 assetId => Slot) internal _slots;
 
@@ -123,6 +147,7 @@ contract FirmBidMarket is ReentrancyGuardTransient, Ownable2Step {
         uint256 indexed assetId, address indexed underwriter, uint256 price, uint256 refund
     );
     event ParametersUpdated(uint256 minImprovementBps, uint256 haircutBps, uint128 maxDecayRate);
+    event DecayRateUpdated(uint128 decayRatePerBlock);
 
     // ---------------------------------------------------------- construction
 
@@ -156,7 +181,24 @@ contract FirmBidMarket is ReentrancyGuardTransient, Ownable2Step {
         minImprovementBps = minImprovementBps_;
         haircutBps = haircutBps_;
         maxDecayRate = maxDecayRate_;
+        // Lowering the ceiling below the live rate must lower the live rate too,
+        // or the guard on `setDecayRate` would be enforcing a bound the current
+        // setting already violates.
+        if (decayRatePerBlock > maxDecayRate_) {
+            decayRatePerBlock = maxDecayRate_;
+            emit DecayRateUpdated(maxDecayRate_);
+        }
         emit ParametersUpdated(minImprovementBps_, haircutBps_, maxDecayRate_);
+    }
+
+    /// @notice Set the per-block floor decay applied to new bids.
+    /// @dev Takes effect on the next bid, never retroactively. A standing slot
+    ///      keeps the rate it was struck under, so an underwriter's commitment
+    ///      cannot be repriced beneath them by an owner transaction.
+    function setDecayRate(uint128 decayRate_) external onlyOwner {
+        if (decayRate_ > maxDecayRate) revert DecayTooHigh(decayRate_, maxDecayRate);
+        decayRatePerBlock = decayRate_;
+        emit DecayRateUpdated(decayRate_);
     }
 
     // ------------------------------------------------------------ views
@@ -281,6 +323,7 @@ contract FirmBidMarket is ReentrancyGuardTransient, Ownable2Step {
         s.floor = newFloor;
         s.escrow = newFloor;
         s.premiumRate = newRate;
+        s.decayRate = decayRatePerBlock;
         s.accrued = 0;
         s.lastTick = uint64(block.number);
 

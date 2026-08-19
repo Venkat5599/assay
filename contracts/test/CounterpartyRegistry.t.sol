@@ -19,7 +19,9 @@ contract CounterpartyRegistryTest is Test {
 
     function test_registerStartsPending() public {
         vm.prank(registrar);
-        reg.register(shipper, "Acme Freight Co", CounterpartyRegistry.Role.Shipper, "US", bytes32(0));
+        reg.register(
+            shipper, "Acme Freight Co", CounterpartyRegistry.Role.Shipper, "US", bytes32(0)
+        );
 
         CounterpartyRegistry.Entity memory e = reg.entityOf(shipper);
         assertEq(e.name, "Acme Freight Co");

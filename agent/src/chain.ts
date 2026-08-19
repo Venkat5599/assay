@@ -18,6 +18,13 @@ export function walletFor(privateKey: `0x${string}`) {
   return {account, client: createWalletClient({account, chain, transport: http()})};
 }
 
+/**
+ * Precision of the settlement asset. Bridged USDT on BOT Chain is SIX decimals,
+ * not eighteen. Assuming eighteen makes every figure an agent reasons about a
+ * million times too small, which quietly changes its grade rather than throwing.
+ */
+export const DECIMALS = Number(process.env.STABLE_DECIMALS ?? 6);
+
 export const CONTRACTS = {
   registry: process.env.ASSET_REGISTRY as Address,
   market: process.env.FIRM_BID_MARKET as Address,
