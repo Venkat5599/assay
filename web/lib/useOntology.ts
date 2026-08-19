@@ -33,7 +33,7 @@ export interface Entity {
   evidenceHash: `0x${string}`;
 }
 
-export function useOntology() {
+export function useOntology(refreshKey = 0) {
   const [entities, setEntities] = useState<Map<string, Entity>>(new Map());
   const [list, setList] = useState<Entity[]>([]);
 
@@ -91,7 +91,7 @@ export function useOntology() {
       cancelled = true;
       clearInterval(t);
     };
-  }, []);
+  }, [refreshKey]);
 
   return {entities, list};
 }

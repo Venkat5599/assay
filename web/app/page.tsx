@@ -13,19 +13,9 @@ import {SettlementMap} from "./components/SettlementMap";
 import {Wallet} from "./components/Wallet";
 import {marketAbi, registryAbi, vaultAbi} from "@/lib/abi";
 import {addresses, isDeployed} from "@/lib/addresses";
+import {useRegisteredAssets} from "@/lib/useChain";
 import {explorerAddress, IS_TESTNET} from "@/lib/chain";
-import {usd, shortAddress} from "@/lib/format";
-
-/**
- * Asset #2 on BOT Chain testnet - the load the agents actually contested.
- * Figures are polled from the chain; the constants below are the recorded
- * terms, present so the page renders completely before any RPC returns.
- */
-const LOAD = {
-  /** Registered on BOT Chain testnet. Only these fields exist on chain. */
-  assetId: 2n,
-  docHash: "0x20355c1e4181601b",
-};
+import {usd, shortAddress, bolRef} from "@/lib/format";
 
 const TICKER = [
   "NO ORACLE",
@@ -154,35 +144,48 @@ export default function Page() {
   const [busy, setBusy] = useState<string | null>(null);
   const {writeContractAsync} = useWriteContract();
 
+  /**
+   * The load on show is whatever the registry most recently recorded.
+   *
+   * This was a hardcoded asset id for a receivable that existed on testnet, and
+   * pointing the same page at mainnet made every read revert against an id that
+   * was never registered here - while the copy underneath went on naming a
+   * document hash from another chain. A featured asset has to be discovered,
+   * not asserted, or the page outlives the thing it describes.
+   */
+  const {assets} = useRegisteredAssets();
+  const featured = assets && assets.length > 0 ? assets[assets.length - 1]! : null;
+  const assetId = featured?.id;
+
   const live = isDeployed;
-  const poll = {enabled: live, refetchInterval: 4000} as const;
+  const poll = {enabled: live && assetId !== undefined, refetchInterval: 4000} as const;
 
   const {data: floor} = useReadContract({
     abi: marketAbi,
     address: addresses.market,
     functionName: "currentFloor",
-    args: [LOAD.assetId],
+    args: [assetId!],
     query: poll,
   });
   const {data: room} = useReadContract({
     abi: vaultAbi,
     address: addresses.vault,
     functionName: "availableToBorrow",
-    args: [LOAD.assetId],
+    args: [assetId!],
     query: poll,
   });
   const {data: debt} = useReadContract({
     abi: vaultAbi,
     address: addresses.vault,
     functionName: "outstanding",
-    args: [LOAD.assetId],
+    args: [assetId!],
     query: poll,
   });
   const {data: receivable} = useReadContract({
     abi: registryAbi,
     address: addresses.assetRegistry,
     functionName: "receivableOf",
-    args: [LOAD.assetId],
+    args: [assetId!],
     query: poll,
   });
   const face = receivable?.faceValue;
@@ -208,7 +211,7 @@ export default function Page() {
     }
   }
 
-  const canAct = isConnected && live;
+  const canAct = isConnected && live && assetId !== undefined;
 
   return (
     <>
@@ -333,9 +336,20 @@ export default function Page() {
         <section className="section pad center">
           <h2 className="display" data-lines>Three agents. Three numbers.</h2>
           <p className="section-lead">
-            Asset #{LOAD.assetId.toString()}, document {LOAD.docHash}. Each agent graded this
-            load independently and escrowed its own capital behind its own number. The rows
-            below are BidPlaced logs, read from chain on every poll.
+            {featured ? (
+              <>
+                Asset #{featured.id.toString()}, document {bolRef(featured.docHash)}. Each
+                underwriter grades this load independently and escrows its own capital behind
+                its own number. The rows below are BidPlaced logs, read from chain on every
+                poll.
+              </>
+            ) : (
+              <>
+                Nothing is registered on this deployment yet, so there is no book to show. The
+                contracts are live and the controls below are wired &mdash; the first receivable
+                someone submits appears here, and the underwriters price it from there.
+              </>
+            )}
           </p>
         </section>
 
@@ -350,7 +364,15 @@ export default function Page() {
             ))}
           </div>
 
-          <LiveBook assetId={LOAD.assetId} />
+          {assetId !== undefined ? (
+            <LiveBook assetId={assetId} />
+          ) : (
+            <p className="callout">
+              <b>No receivable registered yet.</b> An empty book is the honest state of a market
+              nobody has brought an asset to, and the console renders it rather than inventing
+              one.
+            </p>
+          )}
 
 
           <div className="hero-actions">
@@ -364,7 +386,7 @@ export default function Page() {
                     abi: vaultAbi,
                     address: addresses.vault!,
                     functionName: "borrow",
-                    args: [LOAD.assetId, (room as bigint) ?? 0n],
+                    args: [assetId!, (room as bigint) ?? 0n],
                   }),
                 )
               }
@@ -381,7 +403,7 @@ export default function Page() {
                     abi: vaultAbi,
                     address: addresses.vault!,
                     functionName: "repay",
-                    args: [LOAD.assetId, (debt as bigint) ?? 0n],
+                    args: [assetId!, (debt as bigint) ?? 0n],
                   }),
                 )
               }

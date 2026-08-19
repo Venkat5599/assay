@@ -3,9 +3,9 @@ name: contracts
 on:
   push:
     branches: [master, main]
-    paths: ["contracts/**", "agent/**", ".github/workflows/contracts.yml"]
+    paths: ["contracts/**", "agent/**", "web/**", ".github/workflows/contracts.yml"]
   pull_request:
-    paths: ["contracts/**", "agent/**", ".github/workflows/contracts.yml"]
+    paths: ["contracts/**", "agent/**", "web/**", ".github/workflows/contracts.yml"]
 
 concurrency:
   group: contracts-${{ github.ref }}
@@ -66,3 +66,24 @@ jobs:
       # number that moves capital. Determinism is the property under test.
       - name: Pricing kernel
         run: bun test
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      # Settlement precision is the failure that does not throw: assume 18
+      # decimals against a 6-decimal asset and every figure renders a million
+      # times too large. These tests exist so it cannot come back silently.
+      - name: Unit tests
+        run: npm test
+      - name: Build
+        run: npm run build

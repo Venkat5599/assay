@@ -4,6 +4,7 @@ import {useMemo, useState} from "react";
 
 import {BorrowRepay, GetUsdt, LendPanel, OpenSlot, PlaceBid, SubmitLoad} from "../components/Forms";
 import {ClaimSurplus, WithdrawPanel} from "../components/Exits";
+import {RegisterCounterparty, SetCounterpartyStatus} from "../components/Counterparty";
 import {addresses} from "@/lib/addresses";
 import {explorerAddress, explorerTx} from "@/lib/chain";
 import {usd, shortAddress, bolRef} from "@/lib/format";
@@ -793,7 +794,9 @@ export function Origination({ops}: {ops: Ops}) {
 /* --------------------------------------------------------- counterparties */
 
 export function Counterparties() {
-  const {list} = useOntology();
+  const [key, setKey] = useState(0);
+  const {list} = useOntology(key);
+  const refresh = () => setKey((n) => n + 1);
 
   return (
     <>
@@ -844,6 +847,11 @@ export function Counterparties() {
         hash on the receivable; this registry is the social layer beside it, and the two are
         deliberately different kinds of fact.
       </p>
+
+      <div className="cols">
+        <RegisterCounterparty onDone={refresh} />
+        <SetCounterpartyStatus entities={list} onDone={refresh} />
+      </div>
     </>
   );
 }

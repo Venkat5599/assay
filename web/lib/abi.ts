@@ -380,6 +380,36 @@ export const erc20Abi = [
 export const counterpartyAbi = [
   {
     type: "function",
+    name: "isRegistrar",
+    stateMutability: "view",
+    inputs: [{name: "registrar", type: "address"}],
+    outputs: [{type: "bool"}],
+  },
+  {
+    type: "function",
+    name: "register",
+    stateMutability: "nonpayable",
+    inputs: [
+      {name: "account", type: "address"},
+      {name: "name", type: "string"},
+      {name: "role", type: "uint8"},
+      {name: "jurisdiction", type: "string"},
+      {name: "evidenceHash", type: "bytes32"},
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "setStatus",
+    stateMutability: "nonpayable",
+    inputs: [
+      {name: "account", type: "address"},
+      {name: "status", type: "uint8"},
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
     name: "entityOf",
     stateMutability: "view",
     inputs: [{name: "account", type: "address"}],
