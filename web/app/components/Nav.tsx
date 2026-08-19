@@ -2,6 +2,8 @@
 
 import {useEffect, useState} from "react";
 
+import {NetworkSwitch} from "./NetworkSwitch";
+
 /**
  * The bar rides the flare plane while the hero is on screen, then switches to
  * the dark plane. Without the switch an orange bar sits over black content for
@@ -23,6 +25,7 @@ export function Nav() {
     <nav className={past ? "nav dark" : "nav"}>
       <span className="wordmark">LADING</span>
       <div className="nav-right">
+        <NetworkSwitch compact />
         <a className="label" href="/dashboard">
           Live book
         </a>

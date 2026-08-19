@@ -2716,3 +2716,88 @@ html[data-reduce-motion="1"] * {
   border-top-style: dashed;
   border-color: var(--bad);
 }
+
+/* ------------------------------------------------------- network switch ---
+   Both deployments are live and they are not interchangeable: mainnet settles
+   in an asset LADING does not issue, testnet in one anyone can mint. The
+   control has to read as a statement of where you are, not a decoration, so
+   the inactive side stays quiet and the active side carries the ink. */
+
+.netsw {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--rule-strong);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.09em;
+  /* Reserves height before mount so nothing shifts when it appears. */
+  min-height: 1.55rem;
+}
+
+.netsw-opt {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--faint);
+  padding: 0.28rem 0.6rem;
+  cursor: pointer;
+  letter-spacing: inherit;
+  font: inherit;
+  transition: color 0.12s linear, background-color 0.12s linear;
+}
+
+.netsw-opt + .netsw-opt {
+  border-left: 1px solid var(--rule-strong);
+}
+
+.netsw-opt:hover:not(.on) {
+  color: var(--ink);
+}
+
+.netsw-opt.on {
+  background: var(--acid);
+  color: #101408;
+  cursor: default;
+}
+
+.netsw-opt:focus-visible {
+  outline: 1px solid var(--acid);
+  outline-offset: 1px;
+}
+
+/* On the flare plane the acid fill would disappear into the background, so the
+   active side inverts to ink instead. */
+.nav:not(.dark) .netsw {
+  border-color: rgba(16, 20, 8, 0.28);
+}
+
+.nav:not(.dark) .netsw-opt {
+  color: rgba(16, 20, 8, 0.55);
+}
+
+.nav:not(.dark) .netsw-opt + .netsw-opt {
+  border-left-color: rgba(16, 20, 8, 0.28);
+}
+
+.nav:not(.dark) .netsw-opt:hover:not(.on) {
+  color: #101408;
+}
+
+.nav:not(.dark) .netsw-opt.on {
+  background: #101408;
+  color: var(--acid);
+}
+
+.netsw.compact .netsw-opt {
+  padding: 0.24rem 0.5rem;
+  font-size: 0.58rem;
+}
+
+.ws-foot .netsw {
+  width: 100%;
+}
+
+.ws-foot .netsw-opt {
+  flex: 1;
+  text-align: center;
+}

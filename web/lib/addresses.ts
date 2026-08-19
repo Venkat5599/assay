@@ -1,15 +1,13 @@
-import type {Address} from "viem";
+import {ACTIVE} from "./networks";
 
-const env = (v: string | undefined): Address | undefined =>
-  v && /^0x[0-9a-fA-F]{40}$/.test(v) ? (v as Address) : undefined;
-
-export const addresses = {
-  assetRegistry: env(process.env.NEXT_PUBLIC_ASSET_REGISTRY),
-  market: env(process.env.NEXT_PUBLIC_FIRM_BID_MARKET),
-  vault: env(process.env.NEXT_PUBLIC_LOAN_VAULT),
-  stable: env(process.env.NEXT_PUBLIC_STABLE_TOKEN),
-  counterparty: env(process.env.NEXT_PUBLIC_COUNTERPARTY_REGISTRY),
-};
+/**
+ * Contract addresses for the deployment currently in force.
+ *
+ * Shape is unchanged from when these came straight out of environment
+ * variables, so nothing downstream had to learn about networks - the source of
+ * truth moved, the interface did not.
+ */
+export const addresses = ACTIVE.addresses;
 
 /**
  * The UI renders fully before contracts exist. Deployment turns the controls

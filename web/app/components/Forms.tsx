@@ -8,7 +8,8 @@ import {erc20Abi, marketAbi, registryAbi, vaultAbi} from "@/lib/abi";
 import {addresses} from "@/lib/addresses";
 import {explorerAddress, explorerTx} from "@/lib/chain";
 import {useToken, useTxRunner} from "@/lib/useChain";
-import {fromUnits, toUnits, usd} from "@/lib/format";
+import {DECIMALS, SYMBOL, fromUnits, toUnits, usd} from "@/lib/format";
+import {ACTIVE} from "@/lib/networks";
 
 /**
  * The working surface.
@@ -65,27 +66,68 @@ export function Field({
 }
 
 /**
- * Where the settlement asset comes from.
+ * Where the settlement asset comes from - and it depends on the network.
  *
- * LADING settles in bridged USDT on BOT Chain - a real asset with real
- * liquidity, which is the entire point and also means there is no faucet. The
- * testnet build minted its own token on demand; on mainnet that button would be
- * a lie, so this panel tells you where the money actually comes from instead.
+ * On testnet LADING deploys its own token and leaves minting open, so a faucet
+ * is honest and anyone can exercise the whole loop for nothing. On mainnet it
+ * settles in bridged USDT, an asset this protocol does not issue: there is no
+ * faucet, nothing here is mintable, and a mint button would be a lie. Same
+ * panel, two truths, and it says which one applies.
  */
 export function GetUsdt() {
-  const {isConnected} = useAccount();
+  const {address, isConnected} = useAccount();
+  const runner = useTxRunner();
   const {balance} = useToken();
+  const busy = runner.state.status === "pending";
+
+  if (ACTIVE.mintable) {
+    return (
+      <div className="form">
+        <div className="form-head">
+          <h3>Get test {SYMBOL}</h3>
+          <span className="num">{balance !== undefined ? `${usd(balance)} held` : "--"}</span>
+        </div>
+        <p className="form-lead">
+          The settlement token on {ACTIVE.name} is openly mintable, so you can run the whole
+          loop without asking anyone for balance.
+        </p>
+        <button
+          className="btn flare"
+          disabled={!isConnected || busy || !addresses.stable}
+          onClick={() =>
+            runner.run([
+              {
+                label: `Minting 250,000 ${SYMBOL}`,
+                call: () =>
+                  runner.writeContractAsync({
+                    abi: erc20Abi,
+                    address: addresses.stable!,
+                    functionName: "mint",
+                    args: [address!, toUnits("250000")],
+                  }),
+              },
+            ])
+          }
+        >
+          {busy ? "Minting" : `Mint 250,000 ${SYMBOL}`} <span aria-hidden="true">&gt;</span>
+        </button>
+        <Result runner={runner} />
+      </div>
+    );
+  }
 
   return (
     <div className="form">
       <div className="form-head">
         <h3>Settlement asset</h3>
-        <span className="num">{isConnected ? `${usd(balance)} USDT` : "NOT CONNECTED"}</span>
+        <span className="num">
+          {isConnected ? `${usd(balance)} ${SYMBOL}` : "NOT CONNECTED"}
+        </span>
       </div>
       <p className="form-lead">
-        LADING settles in bridged USDT on BOT Chain, not a token this protocol issues. There is
-        no faucet and nothing here is mintable &mdash; the asset is real, so it has to be
-        acquired.
+        LADING settles in bridged {SYMBOL} on {ACTIVE.name}, not a token this protocol issues.
+        There is no faucet and nothing here is mintable &mdash; the asset is real, so it has to
+        be acquired. Switch to testnet if you want to exercise the loop for nothing.
       </p>
       <dl className="kv">
         <div>
@@ -102,7 +144,7 @@ export function GetUsdt() {
         </div>
         <div>
           <dt>Decimals</dt>
-          <dd>6</dd>
+          <dd>{DECIMALS}</dd>
         </div>
         <div>
           <dt>Bridge in</dt>
@@ -268,7 +310,7 @@ export function SubmitLoad({onDone}: {onDone?: () => void}) {
             spellCheck={false}
           />
         </Field>
-        <Field label="Face value (tUSD)" hint="As invoiced">
+        <Field label={`Face value (${SYMBOL})`} hint="As invoiced">
           <input
             className="input"
             inputMode="decimal"
@@ -285,7 +327,7 @@ export function SubmitLoad({onDone}: {onDone?: () => void}) {
             onChange={(e) => setDays(e.target.value)}
           />
         </Field>
-        <Field label="Premium reserve (tUSD)" hint="Funds the underwriter's premium">
+        <Field label={`Premium reserve (${SYMBOL})`} hint="Funds the underwriter's premium">
           <input
             className="input"
             inputMode="decimal"
@@ -395,7 +437,7 @@ export function OpenSlot({assetId, onDone}: {assetId: bigint; onDone?: () => voi
         <h3>Open for bidding</h3>
         <span className="num">ASSET #{assetId.toString()}</span>
       </div>
-      <Field label="Premium reserve (tUSD)" hint="Streams to whoever holds the standing bid">
+      <Field label={`Premium reserve (${SYMBOL})`} hint="Streams to whoever holds the standing bid">
         <input
           className="input"
           inputMode="decimal"
@@ -476,7 +518,7 @@ export function PlaceBid({
       </p>
       <div className="formgrid">
         <Field
-          label="Purchase price (tUSD)"
+          label={`Purchase price (${SYMBOL})`}
           hint={
             currentFloor
               ? `must beat the standing ${usd(currentFloor)}`
@@ -548,7 +590,7 @@ export function BorrowRepay({
 
       <div className="formgrid">
         <Field
-          label="Draw (tUSD)"
+          label={`Draw (${SYMBOL})`}
           hint={
             <>
               up to {usd(drawable)}{" "}
@@ -569,7 +611,7 @@ export function BorrowRepay({
           />
         </Field>
         <Field
-          label="Repay (tUSD)"
+          label={`Repay (${SYMBOL})`}
           hint={
             <>
               outstanding {usd(debt)}{" "}
@@ -673,7 +715,7 @@ export function LendPanel() {
         because lent capital is genuinely illiquid until repayment or settlement.
       </p>
       <Field
-        label="Deposit (tUSD)"
+        label={`Deposit (${SYMBOL})`}
         hint={
           <>
             balance {usd(balance)}{" "}

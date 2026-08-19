@@ -5,6 +5,7 @@ import {useAccount} from "wagmi";
 
 import {Overlay} from "../components/Reveal";
 import {Wallet} from "../components/Wallet";
+import {NetworkBadge, NetworkSwitch} from "../components/NetworkSwitch";
 import {
   Audit, BidBook, CommandCenter, Desks, Exposure, Funding, LoanBook, Origination,
   Portfolio, Protocol, RiskMonitor, Servicing, Underwriting, WorkQueue, Counterparties,
@@ -211,7 +212,7 @@ export default function Workstation() {
         </nav>
 
         <div className="ws-foot">
-          <div>{IS_TESTNET ? "BOT CHAIN TESTNET 968" : "BOT CHAIN 677"}</div>
+          <NetworkSwitch />
           <div>BLOCK {ops.block.toString()}</div>
           <div>{isDeployed ? (ops.error ? "READ ERROR" : "READS LIVE") : "ADDRESSES UNSET"}</div>
         </div>
@@ -234,10 +235,7 @@ export default function Workstation() {
           </button>
 
           <div className="ws-right">
-            <span className={IS_TESTNET ? "netbadge testnet" : "netbadge"}>
-              <span><i aria-hidden="true" />BOT CHAIN {IS_TESTNET ? "TESTNET" : "MAINNET"}</span>
-              <em>CHAIN {IS_TESTNET ? "968" : "677"} · BLOCK {ops.block.toString()}</em>
-            </span>
+            <NetworkBadge />
             <span className="ws-stat">
               <span className="label">TVL</span>
               <b>{usd(ops.pool.total)}</b>

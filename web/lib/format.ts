@@ -1,5 +1,7 @@
 import {formatUnits, parseUnits} from "viem";
 
+import {ACTIVE} from "./networks";
+
 /**
  * Precision of the settlement asset.
  *
@@ -8,11 +10,16 @@ import {formatUnits, parseUnits} from "viem";
  * figure in the product a million times too large, and it is a silent failure -
  * the numbers still format, they are just wrong.
  *
- * So it lives here once, and nothing downstream is allowed to guess. Overridable
- * per deployment because the settlement asset is a constructor argument, not a
- * constant of the protocol.
+ * So it lives here once, and nothing downstream is allowed to guess. It comes
+ * from the active deployment rather than a global, because the settlement asset
+ * is a constructor argument: testnet settles in an 18-decimal token this
+ * project mints, mainnet in 6-decimal bridged USDT. Switching network without
+ * switching precision would be the same silent failure in the other direction.
  */
-export const DECIMALS = Number(process.env.NEXT_PUBLIC_STABLE_DECIMALS ?? 6);
+export const DECIMALS = ACTIVE.decimals;
+
+/** Ticker of the settlement asset on the active deployment. */
+export const SYMBOL = ACTIVE.symbol;
 
 /** Human string -> token units, at the settlement asset's precision. */
 export const toUnits = (v: string): bigint => parseUnits(v || "0", DECIMALS);

@@ -8,7 +8,7 @@ import {Field, Result} from "./Forms";
 import {erc20Abi, marketAbi, vaultAbi} from "@/lib/abi";
 import {addresses} from "@/lib/addresses";
 import {useToken, useTxRunner} from "@/lib/useChain";
-import {toUnits, usd} from "@/lib/format";
+import {SYMBOL, toUnits, usd} from "@/lib/format";
 
 /**
  * The exits.
@@ -376,7 +376,7 @@ export function SlotAdmin({
         The reserve streams to whoever holds the standing bid. If it empties, accrual stops and
         the commitment is no longer being paid for.
       </p>
-      <Field label="Top up (USDT)" hint="Added to the reserve immediately">
+      <Field label={`Top up (${SYMBOL})`} hint="Added to the reserve immediately">
         <input
           className="input"
           inputMode="decimal"
