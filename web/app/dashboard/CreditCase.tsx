@@ -5,6 +5,7 @@ import {useAccount} from "wagmi";
 
 import {BorrowRepay, OpenSlot, PlaceBid} from "../components/Forms";
 import {SlotAdmin, UnderwriterExit} from "../components/Exits";
+import {DecayProjection} from "../components/Decay";
 import {Collapse} from "../components/Reveal";
 import {explorerTx, explorerAddress} from "@/lib/chain";
 import {usd, shortAddress, bolRef} from "@/lib/format";
@@ -365,11 +366,8 @@ export function CreditCase({
         <>
           <Head title="Coverage monitor" right="FLOOR AGAINST LOAN" />
           <Coverage p={p} />
-          <p className="callout">
-            <b>The floor decays every block while the bid is uncontested.</b> When it falls to the
-            outstanding loan the position becomes callable on its own — no vote, no keeper
-            choosing the moment. A better bid resets it upward.
-          </p>
+          <Head title="Decay projection" right="FROM THE SLOT'S OWN RATE" />
+          <DecayProjection p={p} />
         </>
       )}
 

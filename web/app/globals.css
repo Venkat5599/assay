@@ -2584,3 +2584,135 @@ html[data-reduce-motion="1"] * {
 .verify:hover {
   color: var(--acid);
 }
+
+/* ---------------------------------------------------------------- decay ---
+   The projection panel. Floor decay is what makes risk parameters
+   governance-free, and for most of this project's life it was a sentence
+   rather than a behaviour. Now that the contract actually does it, the curve
+   is drawn from the slot's own rate - so these styles serve real data and
+   nothing here is decorative. */
+
+.decay {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.decay-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+}
+
+.decay-stats > div {
+  background: var(--panel);
+  padding: 0.9rem 1rem;
+}
+
+.decay-fig {
+  margin: 0;
+  border: 1px solid var(--rule);
+  background: var(--panel);
+  padding: 1rem 1.1rem 0.85rem;
+}
+
+.decay-fig figcaption {
+  display: block;
+  margin-bottom: 0.85rem;
+  color: var(--faint);
+}
+
+.decay-fig svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* The floor itself: the one line carrying real movement, so it gets the ink. */
+.decay-curve {
+  stroke: var(--acid);
+  stroke-width: 0.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The level where headroom ends. Dashed because it is a policy line, not a
+   measurement - it moves only when the debt does. */
+.decay-thresh {
+  stroke: var(--bad);
+  stroke-width: 0.5;
+  stroke-dasharray: 2 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.decay-debt {
+  stroke: var(--ink-3);
+  stroke-width: 0.4;
+  stroke-dasharray: 1 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.decay-cross {
+  stroke: var(--bad);
+  stroke-width: 0.35;
+  opacity: 0.55;
+  vector-effect: non-scaling-stroke;
+}
+
+.decay-dot {
+  fill: var(--bad);
+}
+
+.decay-ax {
+  fill: var(--faint);
+  font-family: var(--mono);
+  font-size: 3.4px;
+  letter-spacing: 0.04em;
+}
+
+.decay-ax-end {
+  text-anchor: end;
+}
+
+.decay-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.35rem;
+  margin-top: 0.9rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+
+.decay-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.decay-key i {
+  width: 0.85rem;
+  height: 0;
+  border-top-width: 2px;
+  border-top-style: solid;
+  border-radius: 2px;
+}
+
+.decay-key .k-curve {
+  border-color: var(--acid);
+}
+
+.decay-key .k-debt {
+  border-top-style: dotted;
+  border-color: var(--ink-3);
+}
+
+.decay-key .k-thresh {
+  border-top-style: dashed;
+  border-color: var(--bad);
+}

@@ -75,6 +75,8 @@ export interface Position {
   dueDate: bigint;
   floor: bigint;
   escrow: bigint;
+  /** Per-block floor decay this slot was struck under, RAY. */
+  decayRate: bigint;
   /** Premium earned by the standing underwriter and not yet claimed. */
   accrued: bigint;
   premiumReserve: bigint;
@@ -173,6 +175,7 @@ export function useOps(): Ops {
           const slot = x.slot as {
             owner: Address; underwriter: Address; open: boolean;
             floor: bigint; escrow: bigint; accrued: bigint; premiumReserve: bigint;
+            decayRate: bigint;
           };
           const debt = x.debt as bigint;
           const cap = x.cap as bigint;
@@ -202,6 +205,7 @@ export function useOps(): Ops {
             id: x.id, owner: reg.args.owner!, obligor: r.debtor, docHash: r.docHash,
             face: r.faceValue, dueDate: r.dueDate, floor, escrow: slot.escrow,
             accrued: slot.accrued, premiumReserve: slot.premiumReserve,
+            decayRate: slot.decayRate,
             underwriter: slot.underwriter,
             open: slot.open, debt, cap, drawable: x.drawable as bigint,
             defaulted: x.defaulted as boolean, days, coverage, utilisation, advance, status,
