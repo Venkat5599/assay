@@ -3,15 +3,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "bun run src/index.ts",
-    "once": "bun run src/index.ts --once",
+    "propose": "bun run src/propose.ts",
+    "execute": "bun run src/execute.ts",
     "fund": "bun run src/fund.ts",
     "fund:send": "bun run src/fund.ts --send",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.117.1",
+    "openai": "^7.5.0",
     "viem": "^2.21.55",
     "zod": "^4.4.3"
   },

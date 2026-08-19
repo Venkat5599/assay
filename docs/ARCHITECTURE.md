@@ -36,9 +36,10 @@ The v1.0 architecture specified Ponder, Postgres, Drizzle, Hono, Redis, BullMQ, 
 |---|---|
 | Runtime | **Bun** + TypeScript (strict) |
 | Chain client | **viem 2.x** |
-| Judgment | LLM call → risk grade + rationale string |
+| Judgment | OpenAI SDK → risk grade + rationale string. No price, ever |
 | Pricing | Deterministic TypeScript: grade → `F`, premium |
 | Keys | One EOA per agent, funded with minimal capital |
+| Approval | Human-in-the-loop. `propose` grades and stops; `execute --yes` submits |
 
 ### 1.3 Interface
 
@@ -143,7 +144,7 @@ Three agents, deliberately divergent. Identical prices from three keys reads as 
 | `aggressive` | Bids near face value, thin premium, accepts unknown debtors |
 | `sector` | Only one lane or shipper type; ignores everything else |
 
-**Loop:** poll for open slots → read invoice from `AssetRegistry` → LLM emits risk grade + rationale → formula maps grade to `F` and premium → compare against the live `currentFloor` → bid, contest, or abstain → hold, and withdraw when decay makes the position unprofitable.
+**Loop:** read open slots from `Registered` logs → read invoice from `AssetRegistry` → model emits risk grade + rationale → pricing kernel maps grade to `F` and premium → compare against the live slot → propose a bid, a contest on floor, a contest on rate, or abstain → write `proposals.json` and stop. A person reviews, then `execute --yes` revalidates against chain state and submits.
 
 **Why the split matters.** An LLM emitting a raw price is fragile and a judge will poke at it. An LLM emitting a *risk grade with a written rationale*, converted to a price by auditable arithmetic, is defensible. Surface the rationale next to each bid in the UI and hash it on-chain with the bid.
 

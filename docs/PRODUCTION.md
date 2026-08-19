@@ -150,7 +150,9 @@ invoice + verification grade + shipper history
 
 ### 3.3 Model
 
-Claude via the Anthropic API for judgment, pinned to an explicit model id. Model upgrades are a deployment with an eval gate, never a silent floating version.
+An explicitly pinned model id for judgment, reached through the OpenAI SDK so a gateway can be swapped in without touching the agent. Model upgrades are a deployment with an eval gate, never a silent floating version.
+
+v1 already enforces the strongest control on this list: no bid reaches the chain without a human approving it. `propose` writes the decision record, `execute` acts on it. Moving to unattended operation is a deliberate later step, gated on the shadow-mode and eval-harness rows above - not the starting position.
 
 ---
 

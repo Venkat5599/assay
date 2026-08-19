@@ -1,7 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
-import {formatUnits} from "viem";
-import {zodOutputFormat} from "@anthropic-ai/sdk/helpers/zod";
-import {z} from "zod";
+import OpenAI from "openai";
 
 import {DECIMALS} from "./chain";
 import type {Assessment, Grade, Load, Mandate} from "./types";
@@ -17,34 +14,53 @@ import type {Assessment, Grade, Load, Mandate} from "./types";
  * graded rationale, converted to a price by arithmetic anyone can read, is
  * defensible on all three counts.
  *
- * With credentials present the grade comes from Claude reading the load.
- * Without them the same inputs run through the rubric below. Every bid records
- * which path produced it in `source`, so the provenance of a number that moved
- * real capital is never ambiguous.
+ * With credentials present the grade comes from the model reading the load.
+ * Without them the same inputs run through the rubric below. Every proposal
+ * records which path produced it in `source`, so the provenance of a number
+ * that is about to move real capital is never ambiguous.
  */
 
 const DAY = 86_400n;
 const PLACEHOLDER_OBLIGOR = "0x000000000000000000000000000000000000dEaD";
+
+export const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
 /**
  * Structured output schema. The model fills exactly this and nothing else -
  * no prose to parse, no JSON to repair, and notably no price field, because
  * the model is not permitted to set one.
  */
-const AssessmentSchema = z.object({
-  grade: z.enum(["A", "B", "C", "D", "REJECT"]),
-  rationale: z.string(),
-});
+const SCHEMA = {
+  type: "object",
+  properties: {
+    grade: {type: "string", enum: ["A", "B", "C", "D", "REJECT"]},
+    rationale: {type: "string"},
+  },
+  required: ["grade", "rationale"],
+  additionalProperties: false,
+} as const;
 
 /** Instantiated lazily so the module imports cleanly with no credentials. */
-let client: Anthropic | null = null;
-function anthropic(): Anthropic {
-  if (!client) client = new Anthropic();
+let client: OpenAI | null = null;
+function openai(): OpenAI {
+  if (!client) {
+    client = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      // Gateways and proxies are common for keys issued outside OpenAI itself.
+      baseURL: process.env.OPENAI_BASE_URL,
+    });
+  }
   return client;
 }
 
+const facts = (load: Load, mandate: Mandate) => {
+  const face = Number(load.faceValue) / 10 ** DECIMALS;
+  const daysOut = Number((load.dueDate - BigInt(Math.floor(Date.now() / 1000))) / DAY);
+  return {face, daysOut, mandate};
+};
+
 export async function assess(load: Load, mandate: Mandate): Promise<Assessment> {
-  if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) {
+  if (process.env.OPENAI_API_KEY) {
     try {
       return await assessWithModel(load, mandate);
     } catch (err) {
@@ -56,8 +72,7 @@ export async function assess(load: Load, mandate: Mandate): Promise<Assessment> 
 
 /** Deterministic, replayable, and the documented fallback. */
 export function assessWithRubric(load: Load, mandate: Mandate): Assessment {
-  const face = Number(formatUnits(load.faceValue, DECIMALS));
-  const daysOut = Number((load.dueDate - BigInt(Math.floor(Date.now() / 1000))) / DAY);
+  const {face, daysOut} = facts(load, mandate);
 
   const reasons: string[] = [];
   let score = 100;
@@ -94,20 +109,22 @@ export function assessWithRubric(load: Load, mandate: Mandate): Assessment {
 }
 
 async function assessWithModel(load: Load, mandate: Mandate): Promise<Assessment> {
-  const face = Number(formatUnits(load.faceValue, DECIMALS));
-  const daysOut = Number((load.dueDate - BigInt(Math.floor(Date.now() / 1000))) / DAY);
+  const {face, daysOut} = facts(load, mandate);
 
-  const response = await anthropic().messages.parse({
-    model: "claude-opus-5",
-    max_tokens: 2048,
-    system: [
-      "You are a freight receivables underwriter with your own capital at risk.",
-      "You are committing to BUY this invoice at a price derived from your grade,",
-      "so a generous grade costs you money whenever it is wrong.",
-      "Grade the credit only. Never state, imply, or reason toward a price.",
-      "Keep the rationale to one sentence a carrier would understand.",
-    ].join(" "),
+  const response = await openai().chat.completions.create({
+    model: MODEL,
+    max_completion_tokens: 512,
     messages: [
+      {
+        role: "system",
+        content: [
+          "You are a freight receivables underwriter with your own capital at risk.",
+          "You are committing to BUY this invoice at a price derived from your grade,",
+          "so a generous grade costs you money whenever it is wrong.",
+          "Grade the credit only. Never state, imply, or reason toward a price.",
+          "Keep the rationale to one sentence a carrier would understand.",
+        ].join(" "),
+      },
       {
         role: "user",
         content: [
@@ -120,11 +137,17 @@ async function assessWithModel(load: Load, mandate: Mandate): Promise<Assessment
         ].join("\n"),
       },
     ],
-    output_config: {format: zodOutputFormat(AssessmentSchema)},
+    response_format: {
+      type: "json_schema",
+      json_schema: {name: "assessment", strict: true, schema: SCHEMA},
+    },
   });
 
-  const parsed = response.parsed_output;
-  if (!parsed) throw new Error("model returned no parseable assessment");
+  const raw = response.choices[0]?.message?.content;
+  if (!raw) throw new Error("model returned no content");
+
+  const parsed = JSON.parse(raw) as {grade: Grade; rationale: string};
+  if (!parsed.grade || !parsed.rationale) throw new Error("model returned an incomplete assessment");
 
   return {grade: parsed.grade, rationale: parsed.rationale, source: "model"};
 }

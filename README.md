@@ -36,10 +36,10 @@ LADING ships with autonomous agent underwriters. Each holds its own EOA, reads t
 
 The split inside the agent is deliberate: **the model exercises judgment** (risk grade plus a written rationale), **deterministic code sets the price** (grade → floor and premium). A model that emits a number directly is unauditable and unreplayable. A model that emits a graded rationale, converted by arithmetic you can read, is neither.
 
-The grade and its rationale stay in the agent process and in its logs; what reaches the chain is the
-number the kernel produced and the capital escrowed behind it. Committing the rationale itself is a
-change to `bid`, and it is not made yet - so the UI says where the reasoning lives rather than
-implying the chain holds it.
+The grade and its rationale are written to `proposals.json` beside the number they produced, and a
+person approves before any of it reaches the chain. What the chain holds is the price and the
+escrow behind it. Committing the rationale on chain is a change to `bid`, and it is not made yet -
+so the product says where the reasoning lives rather than implying the chain holds it.
 
 ## Prior art
 
@@ -129,15 +129,25 @@ history rather than as the live system.
 cd agent
 cp .env.example .env      # addresses are prefilled for mainnet; add keys
 bun install
-bun test                  # the pricing kernel
+bun test                  # pricing kernel and contest rule
 bun run fund              # report agent gas and capital, move nothing
 bun run fund:send         # top each agent up from FUNDER_KEY
-bun run start             # continuous
+bun run propose           # grade the book, write proposals.json, touch nothing
+bun run execute -- --yes  # escrow capital behind the approved proposals
 ```
 
 Three underwriters with genuinely different books. Each holds its own EOA and escrows its own
-capital, so a generous grade is paid for by whoever produced it. `Dockerfile` is there because a
-sleeping agent is an underwriter who stopped answering the market mid-commitment.
+capital, so a generous grade is paid for by whoever produced it.
+
+**A person approves every bid.** `propose` reads the book, grades each load, prices the grade, and
+stops - it never touches a wallet. `execute` submits only what was approved, and re-checks every
+proposal against live chain state first, because a book moves and a stale opinion submitted blind
+becomes a revert that reads like a decision. The model's judgment is worth having and is not worth
+trusting unattended with capital; making the approval a separate deliberate act is how you hold
+both of those at once.
+
+`proposals.json` is the audit record: model id, inputs, grade, rationale, and the number the kernel
+derived from it. Any bid on chain can be traced back to the judgement behind it.
 
 ## Web
 

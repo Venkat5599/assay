@@ -35,3 +35,31 @@ export interface Quote {
   premiumRate: bigint;
   abstain: boolean;
 }
+
+/**
+ * A graded, priced bid awaiting human approval.
+ *
+ * Written by `propose`, read by `execute`. Everything needed to replay the
+ * decision later is captured here - which model produced the grade, what it
+ * was looking at, and what the pricing kernel derived from it - so a number
+ * that moved capital can always be traced back to the judgement behind it.
+ */
+export interface Proposal {
+  agent: string;
+  book: string;
+  underwriter: string;
+  assetId: string;
+  faceValue: string;
+  docHash: string;
+  grade: Grade;
+  rationale: string;
+  source: Assessment["source"];
+  model: string;
+  floor: string;
+  premiumRate: string;
+  reason: string;
+  /** Slot state when the proposal was formed, so staleness is detectable. */
+  observedFloor: string;
+  observedUnderwriter: string;
+  proposedAt: string;
+}
