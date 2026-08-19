@@ -241,6 +241,13 @@ export const vaultAbi = [
 export const registryAbi = [
   {
     type: "function",
+    name: "idByDocHash",
+    stateMutability: "view",
+    inputs: [{name: "docHash", type: "bytes32"}],
+    outputs: [{type: "uint256"}],
+  },
+  {
+    type: "function",
     name: "register",
     stateMutability: "nonpayable",
     inputs: [

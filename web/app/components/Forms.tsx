@@ -2,7 +2,7 @@
 
 import {useState, type ReactNode} from "react";
 import {keccak256, maxUint256, stringToHex, type Address} from "viem";
-import {useAccount} from "wagmi";
+import {useAccount, usePublicClient} from "wagmi";
 
 import {erc20Abi, marketAbi, registryAbi, vaultAbi} from "@/lib/abi";
 import {addresses} from "@/lib/addresses";
@@ -134,6 +134,7 @@ export function GetUsdt() {
  */
 export function SubmitLoad({onDone}: {onDone?: () => void}) {
   const {address, isConnected} = useAccount();
+  const publicClient = usePublicClient();
   const runner = useTxRunner();
   const {allowance} = useToken(addresses.market);
 
@@ -217,8 +218,31 @@ export function SubmitLoad({onDone}: {onDone?: () => void}) {
       });
     }
 
-    // The new id is the next one the registry mints; read it back from the
-    // portfolio after the receipt rather than guessing here.
+
+    // Opening the slot needs the id the registry just minted. Rather than
+    // guess it or make the carrier come back for a second pass, read it out of
+    // `idByDocHash` - the document hash is the key, and we already know it.
+    // This step runs after the approvals above have mined, so the market can
+    // take both the collateral and the reserve the moment the slot opens.
+    steps.push({
+      label: "Opening the bid slot",
+      call: async () => {
+        const id = (await publicClient!.readContract({
+          abi: registryAbi,
+          address: addresses.assetRegistry!,
+          functionName: "idByDocHash",
+          args: [docHash!],
+        })) as bigint;
+        if (id === 0n) throw new Error("registry did not record the document hash");
+        return runner.writeContractAsync({
+          abi: marketAbi,
+          address: addresses.market!,
+          functionName: "openSlot",
+          args: [id, premiumWei],
+        });
+      },
+    });
+
     const ok = await runner.run(steps);
     if (ok) onDone?.();
   }
@@ -310,7 +334,7 @@ export function SubmitLoad({onDone}: {onDone?: () => void}) {
       <Result runner={runner} />
       {runner.state.status === "done" && (
         <p className="formnote">
-          Registered. Open the slot below from the portfolio row to start the auction.
+          Registered and open for bidding. Underwriters can price it now.
         </p>
       )}
     </div>

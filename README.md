@@ -36,7 +36,10 @@ LADING ships with autonomous agent underwriters. Each holds its own EOA, reads t
 
 The split inside the agent is deliberate: **the model exercises judgment** (risk grade plus a written rationale), **deterministic code sets the price** (grade → floor and premium). A model that emits a number directly is unauditable and unreplayable. A model that emits a graded rationale, converted by arithmetic you can read, is neither.
 
-The rationale is committed on-chain with the bid. The agent's reasoning is as pinned as its capital.
+The grade and its rationale stay in the agent process and in its logs; what reaches the chain is the
+number the kernel produced and the capital escrowed behind it. Committing the rationale itself is a
+change to `bid`, and it is not made yet - so the UI says where the reasoning lives rather than
+implying the chain holds it.
 
 ## Prior art
 
@@ -70,7 +73,8 @@ docs/        PRD, shipping architecture, production architecture
 cd contracts && forge test
 ```
 
-23 passing — 7 market unit, 9 vault integration, 7 stateful invariant.
+35 passing — 7 market unit, 12 vault integration, 8 stateful invariant, 8 counterparty. The agent's
+pricing kernel has its own suite: `cd agent && bun test`.
 
 The invariant suite holds `escrow ≥ floor` and conservation of liabilities across randomised bid, contest, withdraw, decay, and settlement sequences. The integration suite exists because a mocked vault hid two real bugs: settlement could not deliver collateral the market never escrowed, and underwriters were receiving the borrower's *unspent* premium on default — unearned income at the exact moment the commitment ends, which rewards pushing borrowers into default.
 
@@ -91,7 +95,22 @@ Then set the printed addresses in `web/.env` (see `web/.env.example`) and the fr
 
 ### Deployed addresses
 
-**BOT Chain testnet (chain 968)** — live, explorer [scan.bohr.life](https://scan.bohr.life)
+**BOT Chain mainnet (chain 677)** — live, explorer [scan.botchain.ai](https://scan.botchain.ai)
+
+| Contract | Address |
+|---|---|
+| `AssetRegistry` | [`0xe33eE752dbb1724f6939A105cecFF2714F684172`](https://scan.botchain.ai/address/0xe33eE752dbb1724f6939A105cecFF2714F684172) |
+| `FirmBidMarket` | [`0x83f8C719854a561b38E85484568E59CD34d81525`](https://scan.botchain.ai/address/0x83f8C719854a561b38E85484568E59CD34d81525) |
+| `LoanVault` | [`0xCc18DFC9a339d9D1298dbD90617121Ce319D358E`](https://scan.botchain.ai/address/0xCc18DFC9a339d9D1298dbD90617121Ce319D358E) |
+| `AllowlistCompliance` | [`0xacadeD6bA05362004A28D64938c6D794536dC3E7`](https://scan.botchain.ai/address/0xacadeD6bA05362004A28D64938c6D794536dC3E7) |
+
+**Settlement asset:** bridged USDT, [`0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C`](https://scan.botchain.ai/address/0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C) — **six decimals, not eighteen.**
+
+LADING settles in an asset it does not issue. There is no faucet on mainnet and nothing here is
+mintable, which is the honest version of an RWA protocol and also the inconvenient one: capital has
+to be bridged or bought before the loop can be exercised.
+
+**BOT Chain testnet (chain 968)** — earlier build, explorer [scan.bohr.life](https://scan.bohr.life)
 
 | Contract | Address |
 |---|---|
@@ -101,9 +120,24 @@ Then set the printed addresses in `web/.env` (see `web/.env.example`) and the fr
 | `AllowlistCompliance` | [`0xEC6d05d9f71c120AD4E7178F06E9f5fFc4586503`](https://scan.bohr.life/address/0xEC6d05d9f71c120AD4E7178F06E9f5fFc4586503) |
 | `TestStable` (tUSD) | [`0x43C6BB88dA4c5764de4F5b250D8cA4008c7c3549`](https://scan.bohr.life/address/0x43C6BB88dA4c5764de4F5b250D8cA4008c7c3549) |
 
-Asset #1 is live: BOL-88213, face value 18,400 tUSD, two competing firm bids placed. The second (15,640) displaced the first (14,720), leaving 12,512 drawable.
+The testnet deployment predates floor decay and settles in a token we mint, so it is kept as
+history rather than as the live system.
 
-**BOT Chain mainnet (chain 677)** — pending gas sponsorship.
+## Agents
+
+```bash
+cd agent
+cp .env.example .env      # addresses are prefilled for mainnet; add keys
+bun install
+bun test                  # the pricing kernel
+bun run fund              # report agent gas and capital, move nothing
+bun run fund:send         # top each agent up from FUNDER_KEY
+bun run start             # continuous
+```
+
+Three underwriters with genuinely different books. Each holds its own EOA and escrows its own
+capital, so a generous grade is paid for by whoever produced it. `Dockerfile` is there because a
+sleeping agent is an underwriter who stopped answering the market mid-commitment.
 
 ## Web
 
@@ -111,9 +145,35 @@ Asset #1 is live: BOL-88213, face value 18,400 tUSD, two competing firm bids pla
 cd web && npm install && npm run dev
 ```
 
+## Parameters
+
+Every number the protocol runs on, and where it comes from.
+
+| Parameter | Value | Meaning |
+|---|---|---|
+| `haircutBps` | 2000 | `maxLoan = F x (1 - 20%)` |
+| `minImprovementBps` | 25 | A contest must better the incumbent by 0.25%, so the slot cannot be churned with dust |
+| `decayRatePerBlock` | 2.15e-8 RAY | An uncontested floor loses ~20% across a 90-day receivable on this 0.75s chain |
+| `maxDecayRate` | 1e-6 RAY | Ceiling on the above: ~11% a day, so no setting can erase a floor before anyone reacts |
+| `ratePerBlock` | 1e-9 RAY | Borrower interest, compounded by index |
+| `gracePeriod` | 3 days | Past `dueDate` before maturity default can be called |
+
+Decay is a protocol parameter, not a bid parameter, and that is deliberate. It is worth money to
+the underwriter, who settles at the decayed floor, and costs the borrower headroom - so neither
+party at the table is allowed to choose it. A contest resets the clock, so decay only ever bites a
+bid nobody has restated.
+
 ## Status
 
-Live on BOT Chain testnet with the full loop seeded. Frontend deployed at **https://lading-ten.vercel.app**, reading chain state. Agent underwriters next. Mainnet awaits gas sponsorship.
+Live on **BOT Chain mainnet (677)**, settling in bridged USDT. Frontend at
+**https://lading-ten.vercel.app**, reading mainnet state. Contracts are immutable — there is no
+proxy and no upgrade key, because on a protocol that custodies escrow the upgrade key is the real
+collateral.
+
+Known and deliberately not done: the agent rationale is not committed on chain (see above), agents
+do not autonomously withdraw a position that has become unprofitable, and duplicate-financing
+detection stops at document-hash uniqueness within LADING. `docs/PRODUCTION.md` maps what each of
+those becomes when this holds other people's money.
 
 ## Licence
 

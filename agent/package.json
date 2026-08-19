@@ -6,6 +6,8 @@
     "start": "bun run src/index.ts",
     "once": "bun run src/index.ts --once",
     "fund": "bun run src/fund.ts",
+    "fund:send": "bun run src/fund.ts --send",
+    "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

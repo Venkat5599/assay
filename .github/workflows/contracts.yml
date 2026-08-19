@@ -3,9 +3,9 @@ name: contracts
 on:
   push:
     branches: [master, main]
-    paths: ["contracts/**", ".github/workflows/contracts.yml"]
+    paths: ["contracts/**", "agent/**", ".github/workflows/contracts.yml"]
   pull_request:
-    paths: ["contracts/**", ".github/workflows/contracts.yml"]
+    paths: ["contracts/**", "agent/**", ".github/workflows/contracts.yml"]
 
 concurrency:
   group: contracts-${{ github.ref }}
@@ -50,3 +50,19 @@ jobs:
       - uses: foundry-rs/foundry-toolchain@v1
       - name: Coverage
         run: forge coverage --report summary --no-match-coverage "(script|test)"
+
+  agent:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Typecheck
+        run: bun run typecheck
+      # The pricing kernel is the only thing allowed to turn a grade into a
+      # number that moves capital. Determinism is the property under test.
+      - name: Pricing kernel
+        run: bun test

@@ -56,7 +56,7 @@ The agent is not a chatbot bolted to the side. It is the economic actor that bea
 - **The model exercises judgment** — reads the load details, shipper identity, and terms; emits a risk grade plus a written rationale.
 - **Deterministic code sets the price** — grade maps to floor `F` and premium via a fixed formula.
 
-The rationale is hashed on-chain alongside the bid. The agent's reasoning is committed as firmly as its capital. This solves the cold-start problem and makes the auction live from block one.
+The grade and its rationale live in the agent process and its logs, beside the transaction hash of the bid they produced. Committing the rationale on chain is a change to `bid`'s signature and is deliberately not made yet; the product says where the reasoning lives rather than implying the chain holds it. Agents solve the cold-start problem regardless - the auction is live from block one because capital is escrowed from block one.
 
 ### 2.3 Prior art, and the difference
 
@@ -93,15 +93,15 @@ Paradigm's **Blend** (2023) established oracle-free lending against illiquid NFT
 | F-04 | Contest a slot with strictly-better terms; incumbent refunded | ✅ shipped |
 | F-05 | Per-block premium accrual (index-based, O(1)) | ✅ shipped |
 | F-06 | Per-block floor decay on uncontested slots | ✅ `tick` / `currentFloor` |
-| F-07 | Originate loan at derived LTV | ⬜ `LoanVault` |
-| F-08 | Repay loan; release escrow and collateral | ⬜ `LoanVault` |
+| F-07 | Originate loan at derived LTV | ✅ `LoanVault.borrow` |
+| F-08 | Repay loan; release escrow and collateral | ✅ `LoanVault.repay` |
 | F-09 | Default → atomic settlement (escrow→lender, invoice→underwriter) | ✅ `settleDefault` |
 | F-10 | Pluggable `ICompliance` allowlist gate | ✅ shipped |
-| F-11 | Carrier dashboard: submit, watch auction, take loan, repay | ⬜ |
-| F-12 | Agent underwriters: price, bid, contest, withdraw | ⬜ |
-| F-13 | Live auction feed | ⬜ (contract views, polled) |
+| F-11 | Carrier dashboard: submit, watch auction, take loan, repay | ✅ shipped |
+| F-12 | Agent underwriters: price, bid, contest | ✅ shipped — autonomous withdraw still manual |
+| F-13 | Live auction feed | ✅ shipped (logs + contract views, polled) |
 
-The novel mechanism is already built and invariant-tested. What remains is one standard vault, a UI, and the agents.
+All of it is built, invariant-tested, and live on BOT Chain mainnet (677) settling in bridged USDT.
 
 ### 4.2 Deliberately cut for v1
 
