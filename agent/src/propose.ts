@@ -1,13 +1,13 @@
-import {formatUnits, parseAbiItem} from "viem";
 import {privateKeyToAccount} from "viem/accounts";
 import {writeFileSync} from "node:fs";
 
-import {CONTRACTS, DECIMALS, marketAbi, publicClient, registryAbi} from "./chain";
+import {CONTRACTS, DECIMALS, marketAbi, publicClient} from "./chain";
+import {fmt, gradeCached, openSlots} from "./book";
 import {contest, type Slot} from "./contest";
 import {MANDATES} from "./mandates";
 import {price} from "./pricing";
-import {assess, MODEL} from "./underwrite";
-import type {Load, Proposal} from "./types";
+import {MODEL} from "./underwrite";
+import type {Proposal} from "./types";
 
 /**
  * PROPOSE. Reads the book, grades it, prices it, and stops.
@@ -28,49 +28,6 @@ import type {Load, Proposal} from "./types";
 
 const OUT = process.env.PROPOSALS_FILE ?? "proposals.json";
 const ZERO = "0x0000000000000000000000000000000000000000";
-
-const REGISTERED = parseAbiItem(
-  "event Registered(uint256 indexed id, address indexed owner, bytes32 indexed docHash, uint128 faceValue)",
-);
-
-const fmt = (v: bigint) =>
-  Number(formatUnits(v, DECIMALS)).toLocaleString("en-US", {maximumFractionDigits: 2});
-
-async function openSlots(): Promise<Load[]> {
-  const logs = await publicClient.getLogs({
-    address: CONTRACTS.registry,
-    event: REGISTERED,
-    fromBlock: 0n,
-    toBlock: "latest",
-  });
-
-  const found: Load[] = [];
-  for (const log of logs) {
-    const id = log.args.id!;
-    const slot = await publicClient.readContract({
-      abi: marketAbi,
-      address: CONTRACTS.market,
-      functionName: "slots",
-      args: [id],
-    });
-    if (!slot.open) continue;
-
-    const r = await publicClient.readContract({
-      abi: registryAbi,
-      address: CONTRACTS.registry,
-      functionName: "receivableOf",
-      args: [id],
-    });
-    found.push({
-      assetId: id,
-      debtor: r.debtor,
-      faceValue: r.faceValue,
-      dueDate: r.dueDate,
-      docHash: r.docHash,
-    });
-  }
-  return found;
-}
 
 async function main() {
   const agents = Object.entries(MANDATES)
@@ -123,7 +80,7 @@ async function main() {
         continue;
       }
 
-      const assessment = await assess(load, agent.mandate);
+      const {assessment} = await gradeCached(load, agent.mandate);
       const quote = price(load, agent.mandate, assessment);
       const graded = `${tag} ${assessment.grade.padEnd(6)}`;
 

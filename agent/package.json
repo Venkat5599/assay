@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "bun run src/run.ts",
+    "once": "bun run src/run.ts --once",
     "propose": "bun run src/propose.ts",
     "execute": "bun run src/execute.ts",
     "fund": "bun run src/fund.ts",

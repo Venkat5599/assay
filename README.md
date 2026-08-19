@@ -132,6 +132,7 @@ bun install
 bun test                  # pricing kernel and contest rule
 bun run fund              # report agent gas and capital, move nothing
 bun run fund:send         # top each agent up from FUNDER_KEY
+bun run start             # watch and act        (testnet only)
 bun run propose           # grade the book, write proposals.json, touch nothing
 bun run execute -- --yes  # escrow capital behind the approved proposals
 ```
@@ -139,12 +140,26 @@ bun run execute -- --yes  # escrow capital behind the approved proposals
 Three underwriters with genuinely different books. Each holds its own EOA and escrows its own
 capital, so a generous grade is paid for by whoever produced it.
 
-**A person approves every bid.** `propose` reads the book, grades each load, prices the grade, and
-stops - it never touches a wallet. `execute` submits only what was approved, and re-checks every
-proposal against live chain state first, because a book moves and a stale opinion submitted blind
-becomes a revert that reads like a decision. The model's judgment is worth having and is not worth
-trusting unattended with capital; making the approval a separate deliberate act is how you hold
-both of those at once.
+**Autonomy is drawn from the chain, not from a setting.** On testnet the agents watch the book and
+contest each other unattended - the settlement token is freely mintable there, so nothing at stake
+is anyone's money, and it is the only way to see the mechanism do what it was designed to do. On
+mainnet they escrow bridged USDT, and `bun run start` refuses to run: a model grading real money
+with nobody reading the grade is not a demo, it is an unreviewed trading system.
+
+There is an override, and it is deliberately loud - `ALLOW_AUTONOMOUS_MAINNET` must carry one exact
+phrase, and every run that uses it says so. A guard with no escape hatch gets worked around in
+worse ways; a guard that answers to `true` gets opened by accident.
+
+On mainnet the path is `propose` then `execute`. `propose` reads the book, grades each load, prices
+the grade, and stops without touching a wallet. `execute` submits only what was approved, and
+re-checks every proposal against live chain state first, because a book moves and a stale opinion
+submitted blind becomes a revert that reads like a decision.
+
+**A load is graded once.** Re-asking for the same grade on unchanged inputs every twenty seconds is
+not diligence, it is a bill - and worse, it invites identical inputs to come back with a different
+answer, which is the non-determinism the pricing split exists to keep out of the capital path. The
+cache keys on what the model was shown and nothing that moves on its own, so a running demo with
+three receivables and three books costs nine model calls in total rather than nine per sweep.
 
 `proposals.json` is the audit record: model id, inputs, grade, rationale, and the number the kernel
 derived from it. Any bid on chain can be traced back to the judgement behind it.

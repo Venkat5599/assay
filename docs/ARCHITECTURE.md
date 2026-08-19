@@ -39,7 +39,8 @@ The v1.0 architecture specified Ponder, Postgres, Drizzle, Hono, Redis, BullMQ, 
 | Judgment | OpenAI SDK → risk grade + rationale string. No price, ever |
 | Pricing | Deterministic TypeScript: grade → `F`, premium |
 | Keys | One EOA per agent, funded with minimal capital |
-| Approval | Human-in-the-loop. `propose` grades and stops; `execute --yes` submits |
+| Approval | Drawn from the chain: testnet acts unattended, mainnet proposes for review |
+| Cost | A load is graded once per book and cached, so a running loop is a fixed spend, not a per-sweep one |
 
 ### 1.3 Interface
 
