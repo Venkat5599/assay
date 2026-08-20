@@ -16,3 +16,4 @@ agent/proposals.json
 # Agent grade cache: regenerated, and a stale grade should never be replayed
 # from a commit as though the model had just formed it.
 agent/assessments.json
+.playwright-mcp/

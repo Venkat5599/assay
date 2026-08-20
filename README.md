@@ -202,4 +202,8 @@ those becomes when this holds other people's money.
 
 ## Licence
 
-BUSL-1.1 for contracts.
+[BUSL-1.1](contracts/LICENSE) for the contracts under `contracts/src`, converting to MIT on
+2030-08-20. Escrow math that other people's capital sits behind should be readable and auditable
+from day one and forkable on a clock, not on a promise.
+
+[MIT](LICENSE) for everything else - `web/`, `agent/`, `docs/`.
