@@ -1532,6 +1532,60 @@ figure {
   }
 }
 
+/*
+  Below the sidebar breakpoint the rail stacks ABOVE the content, and it is a
+  full workspace nav - fifteen destinations across six groups. On a phone that
+  filled the entire viewport, so the dashboard opened on a menu and the product
+  itself started somewhere below the fold. It read as a page with no content.
+
+  So on narrow screens the rail stops being a column and becomes a single
+  horizontally-scrolling strip: group labels and section rules are dropped,
+  the links sit in a row, and the content starts immediately under it. The same
+  destinations, none of the vertical cost.
+*/
+@media (max-width: 999px) {
+  .ws-side {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .ws-nav {
+    display: flex;
+    gap: 0.35rem;
+    padding: 0.5rem 0.75rem;
+    overflow-x: auto;
+    /* The strip scrolls; the page must not. */
+    scrollbar-width: none;
+  }
+
+  .ws-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ws-group {
+    display: contents;
+  }
+
+  .ws-group > .label {
+    display: none;
+  }
+
+  .ws-link {
+    white-space: nowrap;
+    padding: 0.5rem 0.85rem;
+    border-left: 0;
+    border-bottom: 2px solid transparent;
+  }
+
+  .ws-link.on {
+    border-left: 0;
+    border-bottom-color: var(--acid);
+  }
+}
+
 .ws-brand {
   padding: 1.15rem 1.25rem 1.1rem;
   border-bottom: 1px solid var(--rule);
