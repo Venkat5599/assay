@@ -81,9 +81,19 @@ export const DEPLOYMENTS: Record<Deployment["key"], Deployment> = {
 
 const STORAGE_KEY = "lading:network";
 
-/** Build-time default, so a fresh visitor lands where the deployment says. */
+/**
+ * Build-time default, so a fresh visitor lands where the deployment says.
+ *
+ * Testnet, deliberately. The mainnet contracts are real and immutable but the
+ * book on them is empty, and it stays empty until USDT is bridged - LADING
+ * settles in an asset it does not issue, so there is no seeding around that.
+ * Landing a first visitor on an empty book to prove a point about which chain
+ * is more serious teaches them the protocol does nothing. Testnet runs the
+ * whole mechanism, decay included, and the switch is one click away and always
+ * labelled.
+ */
 const DEFAULT: Deployment["key"] =
-  Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 677) === 968 ? "testnet" : "mainnet";
+  Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 968) === 677 ? "mainnet" : "testnet";
 
 /**
  * The deployment in force for this page load.
