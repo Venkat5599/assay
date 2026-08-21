@@ -2955,70 +2955,6 @@ html[data-reduce-motion="1"] * {
   letter-spacing: 0;
 }
 
-/* --- the severed plate, which sits on the acid hero --- */
-
-.dia-plate {
-  display: none;
-  border-left: 2px solid rgba(16, 20, 8, 0.45);
-  padding-left: clamp(1rem, 2vw, 1.75rem);
-  max-width: 30rem;
-}
-
-@media (min-width: 1080px) {
-  .dia-plate {
-    display: block;
-  }
-}
-
-.dia-plate text {
-  fill: rgba(16, 20, 8, 0.62);
-  font-size: 10.5px;
-}
-
-.dia-plate-head {
-  fill: rgba(16, 20, 8, 0.92) !important;
-  font-size: 11px !important;
-  letter-spacing: 0.34em;
-}
-
-.dia-plate-foot {
-  fill: rgba(16, 20, 8, 0.55) !important;
-  font-size: 9.5px !important;
-  letter-spacing: 0.22em;
-}
-
-.dia-plate-rule {
-  stroke: rgba(16, 20, 8, 0.28);
-  stroke-width: 1;
-}
-
-.dia-sev text {
-  fill: rgba(16, 20, 8, 0.82);
-  letter-spacing: 0.16em;
-}
-
-.dia-sev line,
-.dia-sev path {
-  stroke: rgba(16, 20, 8, 0.5);
-  stroke-width: 1.5;
-  stroke-linecap: round;
-}
-
-/* The far end of a cut connection hangs rather than terminating cleanly. */
-.dia-cut-b,
-.dia-cut-end {
-  stroke: rgba(16, 20, 8, 0.28) !important;
-}
-
-.dia-cut-mark {
-  stroke: rgba(16, 20, 8, 0.75) !important;
-  stroke-width: 2 !important;
-}
-
-.dia-hold text {
-  fill: rgba(16, 20, 8, 0.86);
-}
-
 /*
   Motion is additive. Everything above is the finished state; these rules only
   move an element from somewhere else to where it already is, so a diagram that
@@ -3036,12 +2972,6 @@ html[data-reduce-motion="1"] * {
   .dia-gapspan path {
     animation: dia-drift 2.4s linear infinite;
   }
-
-  .dia-cut-mark {
-    animation: dia-sever 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
-    animation-delay: calc(var(--i, 0) * 90ms + 200ms);
-    transform-origin: center;
-  }
 }
 
 @keyframes dia-extend {
@@ -3057,16 +2987,5 @@ html[data-reduce-motion="1"] * {
 @keyframes dia-drift {
   to {
     stroke-dashoffset: -14;
-  }
-}
-
-@keyframes dia-sever {
-  from {
-    opacity: 0;
-    transform: scale(0.5);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
   }
 }

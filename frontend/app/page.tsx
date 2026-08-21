@@ -3,7 +3,7 @@
 import {useMemo, useState} from "react";
 import {useAccount, useReadContract, useWriteContract} from "wagmi";
 
-import {CashGap, SeveredPlate} from "./components/Diagrams";
+import {CashGap} from "./components/Diagrams";
 import {Faq} from "./components/Faq";
 import MoltenMetal from "./components/MoltenMetal";
 import {LiveBook} from "./components/LiveBook";
@@ -227,7 +227,6 @@ export default function Page() {
               How it settles
             </a>
           </div>
-          <SeveredPlate />
         </div>
         <div className="ticker" aria-hidden="true">
           {[0, 1].map((dup) => (
