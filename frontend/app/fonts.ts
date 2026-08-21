@@ -31,12 +31,24 @@ export const body = localFont({
   fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
 });
 
+/*
+  DejaVu Sans Mono, self-hosted.
+ 
+  Chosen on request, and worth naming for what it is: the default monospace
+  that ASCII-art renderers and Linux toolchains ship with, which is exactly why
+  it belongs here. The data on this page is meant to read as terminal output
+  rather than as typography, and the serifed i and l and the straight-tailed y
+  are the letterforms people associate with a machine printing numbers.
+ 
+  Converted from the upstream TTF to woff2 (333KB down to 142KB) rather than
+  linked from a CDN, so it loads from the same origin as everything else.
+*/
 export const mono = localFont({
   src: [
-    {path: "./fonts/CommitMono-Regular.otf", weight: "400", style: "normal"},
-    {path: "./fonts/CommitMono-Bold.otf", weight: "700", style: "normal"},
+    {path: "./fonts/DejaVuSansMono-Regular.woff2", weight: "400", style: "normal"},
+    {path: "./fonts/DejaVuSansMono-Bold.woff2", weight: "700", style: "normal"},
   ],
   variable: "--font-mono",
   display: "swap",
-  fallback: ["ui-monospace", "monospace"],
+  fallback: ["DejaVu Sans Mono", "ui-monospace", "monospace"],
 });
