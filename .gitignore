@@ -17,3 +17,10 @@ agent/proposals.json
 # from a commit as though the model had just formed it.
 agent/assessments.json
 .playwright-mcp/
+
+# Playwright MCP scratch output.
+.playwright-mcp/
+
+# Throwaway browser screenshots.
+*.png
+!frontend/public/*.png
