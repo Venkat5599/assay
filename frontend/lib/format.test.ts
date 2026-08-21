@@ -2,6 +2,7 @@ import {describe, expect, test} from "vitest";
 import {parseUnits} from "viem";
 
 import {DECIMALS, bolRef, fromUnits, shortAddress, toUnits, usd} from "./format";
+import {ACTIVE, DEPLOYMENTS} from "./networks";
 
 /**
  * Formatting is where the settlement asset's precision either holds or quietly
@@ -15,8 +16,22 @@ import {DECIMALS, bolRef, fromUnits, shortAddress, toUnits, usd} from "./format"
  */
 
 describe("decimals", () => {
-  test("defaults to the settlement asset's six, not the EVM habit of eighteen", () => {
-    expect(DECIMALS).toBe(6);
+  /*
+    This asserted a flat 6, which was true only while mainnet was the default
+    deployment. Switching the default to testnet - which settles in an
+    18-decimal token this project mints - turned a correct reading into a
+    failing test, and hardcoding the other number would just move the same bug.
+
+    The invariant was never "six". It is that precision is READ from the
+    deployment in force and never assumed, so both of these pin that instead.
+  */
+  test("is taken from the deployment in force, never assumed", () => {
+    expect(DECIMALS).toBe(ACTIVE.decimals);
+  });
+
+  test("each deployment carries the precision its own settlement token has", () => {
+    expect(DEPLOYMENTS.mainnet.decimals).toBe(6);
+    expect(DEPLOYMENTS.testnet.decimals).toBe(18);
   });
 
   test("round-trips a human amount through token units", () => {
@@ -33,9 +48,12 @@ describe("decimals", () => {
     expect(toUnits("")).toBe(0n);
   });
 
-  test("an 18-decimal reading would be a million times larger", () => {
-    // Pins the exact failure mode: same string, wrong precision, no error.
-    expect(parseUnits("18400", 18) / toUnits("18400")).toBe(10n ** 12n);
+  test("reading mainnet at eighteen decimals is a million times too large", () => {
+    // The exact failure mode: same string, wrong precision, no error thrown.
+    // Stated against mainnet's six explicitly, so it keeps testing the bug
+    // whichever deployment happens to be the default.
+    const mainnet = DEPLOYMENTS.mainnet.decimals;
+    expect(parseUnits("18400", 18) / parseUnits("18400", mainnet)).toBe(10n ** 12n);
   });
 });
 
