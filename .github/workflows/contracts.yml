@@ -3,9 +3,9 @@ name: contracts
 on:
   push:
     branches: [master, main]
-    paths: ["contracts/**", "agent/**", "web/**", ".github/workflows/contracts.yml"]
+    paths: ["contracts/**", "agent/**", "frontend/**", ".github/workflows/contracts.yml"]
   pull_request:
-    paths: ["contracts/**", "agent/**", "web/**", ".github/workflows/contracts.yml"]
+    paths: ["contracts/**", "agent/**", "frontend/**", ".github/workflows/contracts.yml"]
 
 concurrency:
   group: contracts-${{ github.ref }}
@@ -67,11 +67,11 @@ jobs:
       - name: Pricing kernel
         run: bun test
 
-  web:
+  frontend:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: web
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

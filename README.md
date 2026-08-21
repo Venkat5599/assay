@@ -54,7 +54,7 @@ Paradigm's [Blend](https://www.paradigm.xyz/2023/05/blend) (2023) established or
 
 ```
 contracts/   Foundry — AssetRegistry, FirmBidMarket, LoanVault, compliance
-web/         Next.js 16 + wagmi — carrier flow and live auction
+frontend/    Next.js 16 + wagmi — carrier flow and live auction
 docs/        PRD, shipping architecture, production architecture
 ```
 
@@ -66,6 +66,7 @@ docs/        PRD, shipping architecture, production architecture
 | `FirmBidMarket` | Slots, escrowed bids, contest, premium accrual, floor decay, atomic settlement. Reads no price feed by construction. |
 | `LoanVault` | Shared stablecoin pool. Interest by index, borrow capped at market-derived LTV, dual default triggers (maturity and coverage breach). Settlement surplus returns to the borrower, never to lenders. |
 | `AllowlistCompliance` | Pluggable participation gate. Swapping it is how the protocol adapts to a jurisdiction without touching market logic. |
+| `CounterpartyRegistry` | Names the shippers and carriers behind a receivable, each entry pending until a registrar verifies it. Standalone by design - nothing in the market, the vault or the asset registry reads it, so naming a counterparty on a running deployment never touches escrowed capital. |
 
 ### Tests
 
@@ -73,8 +74,9 @@ docs/        PRD, shipping architecture, production architecture
 cd contracts && forge test
 ```
 
-35 passing — 7 market unit, 12 vault integration, 8 stateful invariant, 8 counterparty. The agent's
-pricing kernel has its own suite: `cd agent && bun test`.
+82 passing — 7 market unit, 12 vault integration, 8 stateful invariant, 8 counterparty,
+14 asset registry, 16 compliance, 17 fixed-point math. The agent's pricing kernel has its own
+suite: `cd agent && bun test`.
 
 The invariant suite holds `escrow ≥ floor` and conservation of liabilities across randomised bid, contest, withdraw, decay, and settlement sequences. The integration suite exists because a mocked vault hid two real bugs: settlement could not deliver collateral the market never escrowed, and underwriters were receiving the borrower's *unspent* premium on default — unearned income at the exact moment the commitment ends, which rewards pushing borrowers into default.
 
@@ -91,7 +93,15 @@ export BOTCHAIN_RPC_URL=...
 forge script script/Deploy.s.sol:Deploy --rpc-url botchain --broadcast --verify
 ```
 
-Then set the printed addresses in `web/.env` (see `web/.env.example`) and the frontend reads chain state instead of recorded terms. The UI renders fully either way — deployment turns the controls live, it never decides whether content is visible.
+Then record the printed addresses in `frontend/lib/networks.ts`, which is the single source of
+truth for every deployment this frontend can point at. They are compiled in rather than read
+from the environment because the network switch is a runtime control: a visitor moves between
+mainnet and testnet without a rebuild, so a build-time variable could not answer for both. The
+only environment variable the app reads is `NEXT_PUBLIC_CHAIN_ID`, which picks the deployment a
+fresh visitor lands on.
+
+The UI renders fully either way — deployment turns the controls live, it never decides whether
+content is visible.
 
 ### Deployed addresses
 
@@ -103,6 +113,7 @@ Then set the printed addresses in `web/.env` (see `web/.env.example`) and the fr
 | `FirmBidMarket` | [`0x83f8C719854a561b38E85484568E59CD34d81525`](https://scan.botchain.ai/address/0x83f8C719854a561b38E85484568E59CD34d81525) |
 | `LoanVault` | [`0xCc18DFC9a339d9D1298dbD90617121Ce319D358E`](https://scan.botchain.ai/address/0xCc18DFC9a339d9D1298dbD90617121Ce319D358E) |
 | `AllowlistCompliance` | [`0xacadeD6bA05362004A28D64938c6D794536dC3E7`](https://scan.botchain.ai/address/0xacadeD6bA05362004A28D64938c6D794536dC3E7) |
+| `CounterpartyRegistry` | [`0xE07f9907fbA27659e1ED8993A2eA8FE343a91f2F`](https://scan.botchain.ai/address/0xE07f9907fbA27659e1ED8993A2eA8FE343a91f2F) |
 
 **Settlement asset:** bridged USDT, [`0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C`](https://scan.botchain.ai/address/0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C) — **six decimals, not eighteen.**
 
@@ -119,6 +130,7 @@ to be bridged or bought before the loop can be exercised.
 | `LoanVault` | [`0x82570C2Aa5cCbE7F003A96931094b9d7590645D5`](https://scan.bohr.life/address/0x82570C2Aa5cCbE7F003A96931094b9d7590645D5) |
 | `AllowlistCompliance` | [`0xEC6d05d9f71c120AD4E7178F06E9f5fFc4586503`](https://scan.bohr.life/address/0xEC6d05d9f71c120AD4E7178F06E9f5fFc4586503) |
 | `TestStable` (tUSD) | [`0x43C6BB88dA4c5764de4F5b250D8cA4008c7c3549`](https://scan.bohr.life/address/0x43C6BB88dA4c5764de4F5b250D8cA4008c7c3549) |
+| `CounterpartyRegistry` | [`0x998328514c4115213e7548c18b99fb1a579de7b8`](https://scan.bohr.life/address/0x998328514c4115213e7548c18b99fb1a579de7b8) |
 
 The testnet deployment predates floor decay and settles in a token we mint, so it is kept as
 history rather than as the live system.
@@ -167,7 +179,7 @@ derived from it. Any bid on chain can be traced back to the judgement behind it.
 ## Web
 
 ```bash
-cd web && npm install && npm run dev
+cd frontend && npm install && npm run dev
 ```
 
 ## Parameters
@@ -206,4 +218,4 @@ those becomes when this holds other people's money.
 2030-08-20. Escrow math that other people's capital sits behind should be readable and auditable
 from day one and forkable on a clock, not on a promise.
 
-[MIT](LICENSE) for everything else - `web/`, `agent/`, `docs/`.
+[MIT](LICENSE) for everything else - `frontend/`, `agent/`, `docs/`.
