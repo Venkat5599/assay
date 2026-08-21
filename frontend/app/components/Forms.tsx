@@ -387,9 +387,13 @@ export function SubmitLoad({onDone}: {onDone?: () => void}) {
 export function OpenSlot({assetId, onDone}: {assetId: bigint; onDone?: () => void}) {
   const {isConnected} = useAccount();
   const runner = useTxRunner();
-  const {allowance} = useToken(addresses.market);
+  const {balance, allowance} = useToken(addresses.market);
   const [premium, setPremium] = useState("400");
   const busy = runner.state.status === "pending";
+  // Opening a slot escrows the premium, so an unaffordable one reverts on the
+  // transfer after the approval has already cost gas. Same reason as the
+  // deposit guard below.
+  const short = balance !== undefined && toUnits(premium) > balance;
 
   async function submit() {
     const premiumWei = toUnits(premium);
@@ -445,9 +449,14 @@ export function OpenSlot({assetId, onDone}: {assetId: bigint; onDone?: () => voi
           onChange={(e) => setPremium(e.target.value)}
         />
       </Field>
+      {short && (
+        <p className="form-err">
+          Premium is larger than the {SYMBOL} this wallet holds ({usd(balance)}).
+        </p>
+      )}
       <button
         className="btn flare"
-        disabled={!isConnected || busy || Number(premium) <= 0}
+        disabled={!isConnected || busy || Number(premium) <= 0 || short}
         onClick={submit}
       >
         {busy ? "Opening" : "Open slot"} <span aria-hidden="true">&gt;</span>
@@ -703,6 +712,11 @@ export function LendPanel() {
   const [amount, setAmount] = useState("");
   const busy = runner.state.status === "pending";
   const amountWei = toUnits(amount);
+  // The form printed the balance and still let a deposit past it be submitted,
+  // so the approval succeeded and the transfer reverted with
+  // ERC20InsufficientBalance - gas spent to be told something the page already
+  // knew. Say it here instead of on chain.
+  const short = balance !== undefined && amountWei > balance;
 
   return (
     <div className="form">
@@ -735,9 +749,15 @@ export function LendPanel() {
           onChange={(e) => setAmount(e.target.value)}
         />
       </Field>
+      {short && (
+        <p className="form-err">
+          Deposit is larger than the {SYMBOL} this wallet holds ({usd(balance)}). Mint some
+          first, or use <b>max</b>.
+        </p>
+      )}
       <button
         className="btn flare"
-        disabled={!isConnected || busy || amountWei === 0n}
+        disabled={!isConnected || busy || amountWei === 0n || short}
         onClick={() => {
           const steps: {label: string; call: () => Promise<`0x${string}`>}[] = [];
           if ((allowance ?? 0n) < amountWei) {

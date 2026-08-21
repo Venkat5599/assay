@@ -3059,3 +3059,24 @@ html[data-reduce-motion="1"] * {
     stroke-dashoffset: -14;
   }
 }
+
+/*
+  Inline form error. Sits directly above the action it blocks, because an error
+  that explains why a button is dead has to be next to the button - a disabled
+  control with no stated reason reads as a broken page.
+*/
+.form-err {
+  margin: 0.85rem 0 0;
+  padding: 0.7rem 0.85rem;
+  border-left: 2px solid var(--warn);
+  background: var(--warn-wash);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.form-err b {
+  color: var(--ink);
+  font-weight: 400;
+}
