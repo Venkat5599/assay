@@ -26,14 +26,16 @@ export interface RegisteredAsset {
 }
 
 export function useRegisteredAssets(refreshKey = 0) {
-  const [assets, setAssets] = useState<RegisteredAsset[] | null>(null);
+  // With no registry address there is nothing to read and never will be, so
+  // the empty result is the initial state. Writing it from the effect meant a
+  // second render to reach a value already known at mount.
+  const [assets, setAssets] = useState<RegisteredAsset[] | null>(
+    addresses.assetRegistry ? null : [],
+  );
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!addresses.assetRegistry) {
-      setAssets([]);
-      return;
-    }
+    if (!addresses.assetRegistry) return;
     let cancelled = false;
     const client = createPublicClient({chain: botChain, transport: http()});
 

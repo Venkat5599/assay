@@ -2,7 +2,7 @@
 
 import {useMemo, useState} from "react";
 
-import {BorrowRepay, GetUsdt, LendPanel, OpenSlot, PlaceBid, SubmitLoad} from "../components/Forms";
+import {GetUsdt, LendPanel, PlaceBid, SubmitLoad} from "../components/Forms";
 import {ClaimSurplus, WithdrawPanel} from "../components/Exits";
 import {RegisterCounterparty, SetCounterpartyStatus} from "../components/Counterparty";
 import {addresses} from "@/lib/addresses";

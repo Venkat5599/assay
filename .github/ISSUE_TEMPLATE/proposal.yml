@@ -1,0 +1,27 @@
+name: Proposal
+description: A change to the mechanism, or something the protocol should do and does not.
+labels: [proposal]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >
+        What breaks, or what cannot be expressed today. Please describe the
+        problem before the solution - the mechanism is deliberately small, and
+        most additions are refused on the grounds that the problem was not
+        established.
+    validations: {required: true}
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+    validations: {required: true}
+  - type: textarea
+    id: cost
+    attributes:
+      label: What it costs
+      description: >
+        New trust assumptions, new privileged roles, new failure modes, or gas.
+        A proposal that claims none of these has usually not been examined yet.
+    validations: {required: true}

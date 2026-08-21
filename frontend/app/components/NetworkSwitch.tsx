@@ -1,6 +1,6 @@
 "use client";
 
-import {useEffect, useState} from "react";
+import {useSyncExternalStore} from "react";
 
 import {ACTIVE, DEPLOYMENTS, switchNetwork, type Deployment} from "@/lib/networks";
 
@@ -22,9 +22,27 @@ import {ACTIVE, DEPLOYMENTS, switchNetwork, type Deployment} from "@/lib/network
  * renders the build default, and painting that first would flash the wrong
  * network at anyone who has chosen the other one.
  */
+
+/**
+ * True once the client has hydrated, false during the server render.
+ *
+ * The server has no localStorage, so it always renders the build default;
+ * painting that would flash the wrong network at anyone who chose the other.
+ * `useSyncExternalStore` states the two snapshots directly, which is what this
+ * has always meant - the older `useState` plus `useEffect` spelling reached the
+ * same place through an extra render.
+ */
+const NEVER_CHANGES = () => () => {};
+function useHydrated() {
+  return useSyncExternalStore(
+    NEVER_CHANGES,
+    () => true,
+    () => false,
+  );
+}
+
 export function NetworkSwitch({compact = false}: {compact?: boolean}) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useHydrated();
 
   const options = Object.values(DEPLOYMENTS);
 
@@ -59,9 +77,7 @@ export function NetworkSwitch({compact = false}: {compact?: boolean}) {
 
 /** The active network, stated plainly. Used where a badge is wanted, not a control. */
 export function NetworkBadge() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
+  if (!useHydrated()) return null;
 
   return (
     <span className={ACTIVE.key === "testnet" ? "netbadge testnet" : "netbadge"}>

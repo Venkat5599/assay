@@ -1,0 +1,36 @@
+name: Bug
+description: Something behaves differently from what the code or docs claim.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        If this could move or freeze escrowed capital, stop and report it
+        privately instead:
+        [security advisory](https://github.com/Venkat5599/assay/security/advisories/new).
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where
+      options: [contracts, agent, frontend, docs, deployment]
+    validations: {required: true}
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened instead
+      description: Quote the line in the code or README that set the expectation, if there is one.
+    validations: {required: true}
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: >
+        Exact commands, or a failing test. A Foundry test that fails on `main`
+        is worth more than any description.
+      render: shell
+    validations: {required: true}
+  - type: input
+    id: chain
+    attributes:
+      label: Chain and addresses
+      description: Which deployment, if this involves one. 677 is mainnet, 968 testnet.

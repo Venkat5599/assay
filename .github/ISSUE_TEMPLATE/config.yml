@@ -1,0 +1,7 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a vulnerability
+    url: https://github.com/Venkat5599/assay/security/advisories/new
+    about: >
+      Anything that could move or freeze escrowed capital goes here, privately,
+      never in a public issue.

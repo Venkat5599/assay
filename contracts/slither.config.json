@@ -1,0 +1,10 @@
+{
+  "filter_paths": "lib/|test/|script/|src/mocks/",
+  "exclude_informational": true,
+  "exclude_low": false,
+  "solc_remaps": [
+    "forge-std/=lib/forge-std/src/",
+    "@openzeppelin/=lib/openzeppelin-contracts/",
+    "solady/=lib/solady/src/"
+  ]
+}

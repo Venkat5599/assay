@@ -31,13 +31,12 @@ interface Row {
 }
 
 export function LiveTape() {
-  const [rows, setRows] = useState<Row[] | null>(null);
+  // Nothing is deployed, nothing will arrive: the empty tape is the initial
+  // state rather than a write on the first commit.
+  const [rows, setRows] = useState<Row[] | null>(isDeployed ? null : []);
 
   useEffect(() => {
-    if (!isDeployed) {
-      setRows([]);
-      return;
-    }
+    if (!isDeployed) return;
     let cancelled = false;
     const client = createPublicClient({chain: botChain, transport: http()});
 

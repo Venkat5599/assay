@@ -1,6 +1,7 @@
 "use client";
 
 import {useCallback, useEffect, useMemo, useState} from "react";
+import Link from "next/link";
 import {useAccount} from "wagmi";
 
 import {Overlay} from "../components/Reveal";
@@ -107,23 +108,23 @@ export default function Workstation() {
   const {address, isConnected} = useAccount();
   const {balance} = useToken();
   const [screen, setScreen] = useState<Screen>("command");
-  const [selected, setSelected] = useState<bigint | null>(null);
+  const [picked, setPicked] = useState<bigint | null>(null);
   const [palette, setPalette] = useState(false);
   const [query, setQuery] = useState("");
 
   const queue = useWorkQueue(ops.positions);
 
+  // The newest position is where a fresh visit should land. Deriving it beats
+  // writing it back from an effect: the same answer, without a second render
+  // of the whole workstation every time the book moves.
+  const selected = picked ?? ops.positions[ops.positions.length - 1]?.id ?? null;
+
   const go = (s: string, id?: bigint) => {
-    if (id !== undefined) setSelected(id);
+    if (id !== undefined) setPicked(id);
     setScreen(s as Screen);
     setPalette(false);
   };
 
-  useEffect(() => {
-    if (selected === null && ops.positions.length > 0) {
-      setSelected(ops.positions[ops.positions.length - 1]!.id);
-    }
-  }, [ops.positions, selected]);
 
   // Command palette. A workstation should be keyboard-reachable.
   useEffect(() => {
@@ -183,7 +184,7 @@ export default function Workstation() {
     <div className="ws">
       <aside className="ws-side">
         <div className="ws-brand">
-          <a href="/">LADING</a>
+          <Link href="/">LADING</Link>
           <span className="label">Freight credit operations</span>
         </div>
 

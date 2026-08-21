@@ -212,6 +212,15 @@ do not autonomously withdraw a position that has become unprofitable, and duplic
 detection stops at document-hash uniqueness within LADING. `docs/PRODUCTION.md` maps what each of
 those becomes when this holds other people's money.
 
+## Contributing and security
+
+[CONTRIBUTING.md](CONTRIBUTING.md) covers layout, the commands CI runs, and the
+higher bar a change to `contracts/src` has to clear.
+
+The contracts are **unaudited** and immutable. Report anything that could move
+or freeze escrowed capital privately, never in a public issue:
+[SECURITY.md](SECURITY.md).
+
 ## Licence
 
 [BUSL-1.1](contracts/LICENSE) for the contracts under `contracts/src`, converting to MIT on

@@ -287,7 +287,8 @@ export default function MoltenMetal({
     const io = new IntersectionObserver(
       ([entry]) => {
         inView = Boolean(entry?.isIntersecting);
-        inView ? start() : stop();
+        if (inView) start();
+        else stop();
       },
       {threshold: 0},
     );
@@ -295,7 +296,8 @@ export default function MoltenMetal({
 
     const onVisibility = () => {
       pageVisible = !document.hidden;
-      pageVisible ? start() : stop();
+      if (pageVisible) start();
+      else stop();
     };
     document.addEventListener("visibilitychange", onVisibility);
 

@@ -1,0 +1,75 @@
+name: security
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  schedule:
+    # A dependency does not have to change to become vulnerable, so this runs
+    # on a clock as well as on a diff.
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Static analysis of the contracts that custody escrow. Findings land in the
+  # Security tab rather than only in a log, so a regression is visible without
+  # reading CI output.
+  slither:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: crytic/slither-action@v0.4.1
+        id: slither
+        continue-on-error: true
+        with:
+          target: contracts/
+          slither-config: contracts/slither.config.json
+          sarif: results.sarif
+          fail-on: none
+
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always() && steps.slither.outputs.sarif != ''
+        with:
+          sarif_file: ${{ steps.slither.outputs.sarif }}
+
+  # A secret committed once is a secret leaked, so history is scanned, not just
+  # the diff.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # High and critical only. A wall of low-severity transitive advisories
+      # trains people to ignore the job, which is worse than not running it.
+      - name: Audit frontend dependencies
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
+      - uses: oven-sh/setup-bun@v2
+      - name: Audit agent dependencies
+        working-directory: agent
+        run: bun audit --audit-level=high

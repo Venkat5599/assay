@@ -41,6 +41,13 @@ jobs:
         env:
           FOUNDRY_PROFILE: ci
 
+      # Gas is a correctness signal on a contract that moves escrow: a jump
+      # here usually means a loop or a storage write nobody intended. Fuzz and
+      # invariant runs are excluded because their means move between runs, so
+      # including them would make this fail for no reason.
+      - name: Gas snapshot
+        run: forge snapshot --check --no-match-test "testFuzz|invariant" --no-match-contract "Invariants"
+
   coverage:
     runs-on: ubuntu-latest
     steps:
@@ -80,6 +87,8 @@ jobs:
       - run: npm ci
       - name: Typecheck
         run: npm run typecheck
+      - name: Lint
+        run: npm run lint
       # Settlement precision is the failure that does not throw: assume 18
       # decimals against a 6-decimal asset and every figure renders a million
       # times too large. These tests exist so it cannot come back silently.
