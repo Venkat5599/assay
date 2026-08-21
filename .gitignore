@@ -24,3 +24,4 @@ agent/assessments.json
 # Throwaway browser screenshots.
 *.png
 !frontend/public/*.png
+!docs/assets/*.png

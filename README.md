@@ -1,6 +1,43 @@
-# LADING
+<p align="center">
+  <img src="https://img.shields.io/badge/%F0%9F%9A%9B-LADING-8bd737?style=for-the-badge&labelColor=090a0a" alt="LADING" />
+</p>
 
-**The load moved. The money didn't.**
+<h1 align="center">LADING</h1>
+
+<p align="center">
+  <strong>The load moved. The money didn't.</strong><br />
+  Credit against freight receivables on BOT Chain &mdash; liquidation without a secondary market.
+</p>
+
+<p align="center">
+  <a href="https://scan.botchain.ai/address/0x83f8C719854a561b38E85484568E59CD34d81525">
+    <img src="https://img.shields.io/badge/LIVE-BOT_Chain_Mainnet_677-8bd737?style=for-the-badge&labelColor=090a0a" alt="Live on mainnet" />
+  </a>
+  <img src="https://img.shields.io/badge/VERIFIED-5_%2F_5_contracts-8bd737?style=for-the-badge&labelColor=090a0a" alt="Contracts verified" />
+  <img src="https://img.shields.io/badge/TESTS-82_passing-8bd737?style=for-the-badge&labelColor=090a0a" alt="82 tests" />
+  <img src="https://img.shields.io/badge/Solidity-0.8.28-363636?style=for-the-badge&logo=solidity" alt="Solidity 0.8.28" />
+</p>
+
+<p align="center">
+  <a href="https://lading-ten.vercel.app"><strong>Live app</strong></a> &nbsp;&middot;&nbsp;
+  <a href="docs/ARCHITECTURE.md">Architecture</a> &nbsp;&middot;&nbsp;
+  <a href="docs/PRODUCTION.md">Production</a> &nbsp;&middot;&nbsp;
+  <a href="ROADMAP.md">Roadmap</a> &nbsp;&middot;&nbsp;
+  <a href="SECURITY.md">Security</a>
+</p>
+
+---
+
+<p align="center">
+  <img src="docs/assets/hero.png" alt="LADING landing page" width="880" />
+</p>
+
+<p align="center">
+  <em>The credit console, reading BOT Chain mainnet live. Every row links to the transaction that produced it.</em><br />
+  <img src="docs/assets/dashboard.png" alt="LADING credit operations dashboard" width="880" />
+</p>
+
+---
 
 Credit against freight receivables, on BOT Chain. A carrier delivers on Monday, the shipper pays in 90 days, and the carrier needs diesel on Tuesday. LADING closes that gap without a bank, without an oracle, and without a secondary market for the invoice.
 
