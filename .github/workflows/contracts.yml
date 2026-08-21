@@ -36,8 +36,12 @@ jobs:
 
       # The CI profile raises fuzz runs 10x and invariant depth 2x. Local runs
       # stay fast; the expensive search happens here, once, per change.
+      # The profile is selected by the environment. `--profile` was removed as
+      # a `forge test` flag, and because the env var was already set here the
+      # step failed on the argument rather than on a test - so this sweep has
+      # not actually run in CI for as long as the toolchain has been current.
       - name: Fuzz and invariant sweep
-        run: forge test --profile ci
+        run: forge test -vv
         env:
           FOUNDRY_PROFILE: ci
 
