@@ -3,6 +3,7 @@
 import {useMemo, useState} from "react";
 import {useAccount, useReadContract, useWriteContract} from "wagmi";
 
+import {CashGap, SeveredPlate} from "./components/Diagrams";
 import {Faq} from "./components/Faq";
 import MoltenMetal from "./components/MoltenMetal";
 import {LiveBook} from "./components/LiveBook";
@@ -106,38 +107,6 @@ const CAPABILITIES = [
 ];
 
 
-
-const TIMELINE = `  DAY 0        DAY 1                          DAY 90
-  +------+     +--------------------------+   +------+
-  | LOAD |---->|        UNPAID GAP        |-->| PAID |
-  +------+     +--------------------------+   +------+
-     |                     |                      |
-  fuel, driver,     rent, payroll,           shipper
-  insurance         the next load            settles
-     |                     |                      |
-   CASH OUT             CASH OUT              CASH IN
-
-  ------------------------------------------------------
-  out  ####################################
-  in                                       ###########
-  ------------------------------------------------------
-  The work is performed first and paid for last.`;
-
-
-
-const HERO_PLATE = `+------------------------------------+
-|  F I R M   B I D   M A R K E T     |
-+------------------------------------+
-|  ORACLE                 [ severed ]|
-|  AUCTION                [ severed ]|
-|  SECONDARY MARKET       [ severed ]|
-+------------------------------------+
-|  PURCHASE PRICE      ESCROWED 100% |
-|  FUNDED              PRE-ORIGINATION|
-|  SETTLEMENT               1 BLOCK  |
-+------------------------------------+
-|  READ LIVE FROM CHAIN              |
-+------------------------------------+`;
 
 export default function Page() {
   const {address, isConnected} = useAccount();
@@ -258,9 +227,7 @@ export default function Page() {
               How it settles
             </a>
           </div>
-          <pre className="hero-plate" data-parallax="6" aria-hidden="true">
-{HERO_PLATE}
-          </pre>
+          <SeveredPlate />
         </div>
         <div className="ticker" aria-hidden="true">
           {[0, 1].map((dup) => (
@@ -286,9 +253,9 @@ export default function Page() {
 
         <div className="split">
           <div>
-            <pre className="plate" data-reveal aria-label="Timeline of a freight invoice">
-              {TIMELINE}
-            </pre>
+            <div data-reveal>
+              <CashGap />
+            </div>
           </div>
           <div className="grid g2" style={{border: 0}}>
             {PROBLEM.map((c) => (
