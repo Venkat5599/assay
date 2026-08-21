@@ -15,6 +15,7 @@ import {CreditCase} from "./CreditCase";
 import {SettleButton} from "../components/Forms";
 import {addresses, isDeployed} from "@/lib/addresses";
 import {IS_TESTNET} from "@/lib/chain";
+import {switchNetwork} from "@/lib/networks";
 import {usd, shortAddress, bolRef} from "@/lib/format";
 import {useOps, useWorkQueue} from "@/lib/useOps";
 import {useToken} from "@/lib/useChain";
@@ -269,6 +270,24 @@ export default function Workstation() {
             <p className="callout">
               <b>Connect a wallet on chain {IS_TESTNET ? "968" : "677"} to operate.</b> Reads are
               live without one; every write needs a signer.
+            </p>
+          )}
+          {/*
+            An unseeded book is not a broken screen, but it does look like one
+            if nothing says otherwise. This states the position plainly and
+            sends the visitor to the deployment that is actually running rather
+            than leaving them to conclude the protocol does nothing.
+          */}
+          {isDeployed && !ops.loading && ops.positions.length === 0 && !IS_TESTNET && (
+            <p className="callout">
+              <b>No receivable has been registered on mainnet yet.</b> The contracts are live and
+              immutable at the addresses above; LADING settles in bridged USDT, which it does not
+              issue, so the book stays empty until capital is bridged to it.{" "}
+              <button className="linkish" onClick={() => switchNetwork("testnet")}>
+                Switch to testnet
+              </button>{" "}
+              to watch the same contracts run a financed load, a contested slot and a load nobody
+              would bid on.
             </p>
           )}
           {body()}

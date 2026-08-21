@@ -216,6 +216,10 @@ the caller actually holds the USDT it is about to escrow. Bridging real money is
 it has not been taken. A visitor on mainnet therefore sees an empty book, correctly labelled —
 absence of a bid is information here, and the interface says so rather than inventing a row.
 
+The interface reads **mainnet by default**, and says plainly on screen that the book is unseeded
+rather than rendering an empty screen and leaving you to guess. Switching to testnet is one
+labelled click.
+
 **The working book is on testnet (968)**, redeployed from these contracts so it runs the whole
 mechanism, floor decay included. Three loads, deliberately in three different states: one financed
 and drawable, one contested three times — twice on the floor, once on premium alone — and one that
@@ -230,6 +234,12 @@ Known and deliberately not done: the agent rationale is not committed on chain (
 do not autonomously withdraw a position that has become unprofitable, and duplicate-financing
 detection stops at document-hash uniqueness within LADING. `docs/PRODUCTION.md` maps what each of
 those becomes when this holds other people's money.
+
+## Roadmap
+
+[ROADMAP.md](ROADMAP.md) covers what happens next and what has to be true
+before each step is honest to take, along with why this was built on BOT Chain
+rather than ported to it.
 
 ## Contributing and security
 
