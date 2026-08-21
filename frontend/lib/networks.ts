@@ -70,11 +70,11 @@ export const DEPLOYMENTS: Record<Deployment["key"], Deployment> = {
     symbol: "tUSD",
     mintable: true,
     addresses: {
-      assetRegistry: "0x376470D20e0F67588A9DD5aFCeeD9748Dc4F1CD2",
-      market: "0x6438EDAeebF482212fbcf5a681Be0b698f952F05",
-      vault: "0x82570C2Aa5cCbE7F003A96931094b9d7590645D5",
-      stable: "0x43C6BB88dA4c5764de4F5b250D8cA4008c7c3549",
-      counterparty: "0x998328514c4115213e7548c18b99fb1a579de7b8",
+      assetRegistry: "0xC8D510C1363C3db4965f53bcE16344dBebDAceBA",
+      market: "0x568633C93b80C08BaB755ecab1C8A3216580Fb6A",
+      vault: "0x313b5f7E0ce7293fdf9f5d4a5DBF59b07432E37E",
+      stable: "0x8E601297758B1Fb93C2c30E33F11eA36cd553b2E",
+      counterparty: "0x13d0B6594BBE65C7d496c4Fd1A862b1d112D2dC2",
     },
   },
 };

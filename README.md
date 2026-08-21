@@ -125,15 +125,17 @@ to be bridged or bought before the loop can be exercised.
 
 | Contract | Address |
 |---|---|
-| `AssetRegistry` | [`0x376470D20e0F67588A9DD5aFCeeD9748Dc4F1CD2`](https://scan.bohr.life/address/0x376470D20e0F67588A9DD5aFCeeD9748Dc4F1CD2) |
-| `FirmBidMarket` | [`0x6438EDAeebF482212fbcf5a681Be0b698f952F05`](https://scan.bohr.life/address/0x6438EDAeebF482212fbcf5a681Be0b698f952F05) |
-| `LoanVault` | [`0x82570C2Aa5cCbE7F003A96931094b9d7590645D5`](https://scan.bohr.life/address/0x82570C2Aa5cCbE7F003A96931094b9d7590645D5) |
-| `AllowlistCompliance` | [`0xEC6d05d9f71c120AD4E7178F06E9f5fFc4586503`](https://scan.bohr.life/address/0xEC6d05d9f71c120AD4E7178F06E9f5fFc4586503) |
-| `TestStable` (tUSD) | [`0x43C6BB88dA4c5764de4F5b250D8cA4008c7c3549`](https://scan.bohr.life/address/0x43C6BB88dA4c5764de4F5b250D8cA4008c7c3549) |
-| `CounterpartyRegistry` | [`0x998328514c4115213e7548c18b99fb1a579de7b8`](https://scan.bohr.life/address/0x998328514c4115213e7548c18b99fb1a579de7b8) |
+| `AssetRegistry` | [`0xC8D510C1363C3db4965f53bcE16344dBebDAceBA`](https://scan.bohr.life/address/0xC8D510C1363C3db4965f53bcE16344dBebDAceBA) |
+| `FirmBidMarket` | [`0x568633C93b80C08BaB755ecab1C8A3216580Fb6A`](https://scan.bohr.life/address/0x568633C93b80C08BaB755ecab1C8A3216580Fb6A) |
+| `LoanVault` | [`0x313b5f7E0ce7293fdf9f5d4a5DBF59b07432E37E`](https://scan.bohr.life/address/0x313b5f7E0ce7293fdf9f5d4a5DBF59b07432E37E) |
+| `AllowlistCompliance` | [`0x4cb6Cd2bAe5fFDfd06CCD6d4d29219e7AE927f4F`](https://scan.bohr.life/address/0x4cb6Cd2bAe5fFDfd06CCD6d4d29219e7AE927f4F) |
+| `TestStable` (tUSD) | [`0x8E601297758B1Fb93C2c30E33F11eA36cd553b2E`](https://scan.bohr.life/address/0x8E601297758B1Fb93C2c30E33F11eA36cd553b2E) |
+| `CounterpartyRegistry` | [`0x13d0B6594BBE65C7d496c4Fd1A862b1d112D2dC2`](https://scan.bohr.life/address/0x13d0B6594BBE65C7d496c4Fd1A862b1d112D2dC2) |
 
-The testnet deployment predates floor decay and settles in a token we mint, so it is kept as
-history rather than as the live system.
+Redeployed from the current contracts, so unlike the deployment it replaces it carries floor
+decay (`decayRatePerBlock` 2.15e-8 RAY, the same as mainnet). It settles in a token this project
+mints, which is what makes it safe to run the agents unattended and what keeps it a demonstration
+rather than a market.
 
 ## Agents
 
@@ -214,13 +216,15 @@ the caller actually holds the USDT it is about to escrow. Bridging real money is
 it has not been taken. A visitor on mainnet therefore sees an empty book, correctly labelled —
 absence of a bid is information here, and the interface says so rather than inventing a row.
 
-**A populated book exists on testnet (968)**, and it is an older build. Three receivables, a
-funded vault, escrowed bids, agents contesting each other unattended — the settlement token there
-is mintable, which is the only reason autonomy is allowed to run without a person reading each
-grade. What it does not have is floor decay: that market predates it and has no
-`decayRatePerBlock`, so it shows contest and settlement but not the mechanism that makes an
-uncontested position become callable on its own. Switch networks in the interface to watch what is
-there, and read the missing half here rather than inferring it from that deployment.
+**The working book is on testnet (968)**, redeployed from these contracts so it runs the whole
+mechanism, floor decay included. Three loads, deliberately in three different states: one financed
+and drawable, one contested three times — twice on the floor, once on premium alone — and one that
+nobody has bid on at all. That third row is the one worth looking at. It is not financeable, the
+interface says so, and no bid was arranged for it, because a book where every load happens to get
+funded never tests the claim that absence of a bid is information rather than a failure.
+
+The settlement token there is mintable, which is what makes it safe to let the agents run
+unattended and what keeps it a demonstration rather than a market.
 
 Known and deliberately not done: the agent rationale is not committed on chain (see above), agents
 do not autonomously withdraw a position that has become unprofitable, and duplicate-financing

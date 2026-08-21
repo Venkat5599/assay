@@ -38,10 +38,14 @@ int_types = "long"
 botchain = "${BOTCHAIN_RPC_URL}"
 botchain_testnet = "${BOTCHAIN_TESTNET_RPC_URL}"
 
-# BOT Chain's explorer runs Blockscout, not Etherscan. Blockscout verifies
-# without credentials, so the key here is a placeholder the toolchain insists on
-# rather than a secret - which is why verification was blocked on an API key
-# that was never going to exist.
-[etherscan]
-botchain = { key = "blockscout", url = "https://scan.botchain.ai/api/", chain = 677 }
-botchain_testnet = { key = "blockscout", url = "https://scan.bohr.life/api/", chain = 968 }
+# Verification is a command-line concern, not a config one. Foundry 1.5 rejects
+# an [etherscan] entry for a chain it does not know, and it rejects it at
+# startup - which took every `forge script` invocation down with
+# "Chain 677 not supported", including simulation and deployment, whether or
+# not verification was being asked for. BOT Chain runs Blockscout and verifies
+# without credentials, so there was never a key to configure. Verify with:
+#
+#   forge verify-contract <address> <Contract> \
+#     --verifier blockscout \
+#     --verifier-url https://scan.botchain.ai/api/ \
+#     --chain-id 677 --watch
