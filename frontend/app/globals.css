@@ -211,6 +211,54 @@ figure {
   pointer-events: none;
 }
 
+/*
+  The dithered field behind the hero.
+ 
+  It arrives as a cold blue photograph and the hero is acid green, so it is
+  desaturated and multiplied rather than laid on top: multiply keeps the green
+  hue and lets the image's darks deepen it, which makes the picture part of the
+  surface instead of a blue rectangle pasted onto a green one. The halftone in
+  the source does the work grain usually has to fake.
+ 
+  Every edge is feathered by the mask. A photograph that stops at a straight
+  line reads as a band pasted on, and the fade has enough stops to ease rather
+  than step.
+*/
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/hero-field.webp");
+  background-size: cover;
+  background-position: 62% 38%;
+  filter: grayscale(1) contrast(1.08);
+  mix-blend-mode: multiply;
+  opacity: 0.34;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(
+    118% 96% at 72% 34%,
+    #000 0%,
+    rgba(0, 0, 0, 0.96) 22%,
+    rgba(0, 0, 0, 0.82) 38%,
+    rgba(0, 0, 0, 0.6) 52%,
+    rgba(0, 0, 0, 0.38) 64%,
+    rgba(0, 0, 0, 0.2) 76%,
+    rgba(0, 0, 0, 0.08) 86%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(
+    118% 96% at 72% 34%,
+    #000 0%,
+    rgba(0, 0, 0, 0.96) 22%,
+    rgba(0, 0, 0, 0.82) 38%,
+    rgba(0, 0, 0, 0.6) 52%,
+    rgba(0, 0, 0, 0.38) 64%,
+    rgba(0, 0, 0, 0.2) 76%,
+    rgba(0, 0, 0, 0.08) 86%,
+    transparent 100%
+  );
+}
+
 .hero-inner {
   position: relative;
   display: grid;
