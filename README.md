@@ -202,10 +202,25 @@ bid nobody has restated.
 
 ## Status
 
-Live on **BOT Chain mainnet (677)**, settling in bridged USDT. Frontend at
+Deployed on **BOT Chain mainnet (677)**, settling in bridged USDT. Frontend at
 **https://lading-ten.vercel.app**, reading mainnet state. Contracts are immutable — there is no
 proxy and no upgrade key, because on a protocol that custodies escrow the upgrade key is the real
 collateral.
+
+**The mainnet book is empty.** The contracts are live; no receivable has been registered against
+them and no capital sits in the vault. That is a funding state, not a bug: LADING settles in an
+asset it does not issue, there is no faucet, and `script/SeedMainnet.s.sol` refuses to run until
+the caller actually holds the USDT it is about to escrow. Bridging real money is the last step and
+it has not been taken. A visitor on mainnet therefore sees an empty book, correctly labelled —
+absence of a bid is information here, and the interface says so rather than inventing a row.
+
+**A populated book exists on testnet (968)**, and it is an older build. Three receivables, a
+funded vault, escrowed bids, agents contesting each other unattended — the settlement token there
+is mintable, which is the only reason autonomy is allowed to run without a person reading each
+grade. What it does not have is floor decay: that market predates it and has no
+`decayRatePerBlock`, so it shows contest and settlement but not the mechanism that makes an
+uncontested position become callable on its own. Switch networks in the interface to watch what is
+there, and read the missing half here rather than inferring it from that deployment.
 
 Known and deliberately not done: the agent rationale is not committed on chain (see above), agents
 do not autonomously withdraw a position that has become unprofitable, and duplicate-financing
