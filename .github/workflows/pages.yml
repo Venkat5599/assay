@@ -1,0 +1,61 @@
+name: pages
+
+on:
+  push:
+    branches: [master, main]
+    paths: ["web/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+# Pages needs to read the tree, mint an OIDC token, and write the site.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One live site. A newer push waits for the running deploy rather than
+# cancelling it, so the environment is never left half-written.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/configure-pages@v5
+
+      - run: npm ci
+
+      - name: Build static export
+        run: npm run build
+        env:
+          # Pages serves the project site under /<repo>.
+          PAGES_BASE_PATH: /${{ github.event.repository.name }}
+
+      # Jekyll drops any directory starting with an underscore, which would
+      # delete Next's entire _next/ bundle.
+      - name: Disable Jekyll
+        run: touch out/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
